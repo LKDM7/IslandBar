@@ -49,6 +49,8 @@ static class Program
             && Updater.Verified("abc"u8.ToArray(), "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD")
             && !Updater.Verified("abd"u8.ToArray(), "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD")
             && JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(new Settings { Apps = { ["x"] = new("X", true) } })).Apps["x"] == new AppChoice("X", true)
+            && JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(new Settings { Quiet = true })).Quiet
+            && !JsonSerializer.Deserialize<Settings>("{\"Apps\":{}}").Quiet
             && MainWindow.Clock(TimeSpan.FromSeconds(3725)) == "62:05"
             && Avatars.PathIn(@"<toast><visual><binding><image placement='appLogoOverride' src='C:\Temp/a.png' /></binding></visual></toast>") == @"C:\Temp\a.png"
             && Avatars.PathIn("<toast><visual><binding><image src='file:///C:/Temp/a.png' /></binding></visual></toast>") == @"C:\Temp\a.png"

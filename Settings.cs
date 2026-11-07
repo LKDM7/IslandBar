@@ -15,6 +15,7 @@ public class Settings
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "IslandBar", "settings.json");
 
     public Dictionary<string, AppChoice> Apps { get; set; } = [];
+    public bool Quiet { get; set; } // ne pas déranger, posé à la main
 
     // Fichier absent ou abîmé : on repart des réglages par défaut plutôt que d'empêcher l'île de démarrer.
     public static Settings Load()
@@ -26,7 +27,9 @@ public class Settings
     public void Save()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(this));
+        var temporary = FilePath + ".tmp";
+        File.WriteAllText(temporary, JsonSerializer.Serialize(this));
+        File.Move(temporary, FilePath, overwrite: true); // en deux temps : une coupure ne doit pas effacer les réglages
     }
 
     // Une appli affichée dans l'île ne doit pas aussi afficher sa bannière Windows : c'est la double notification.

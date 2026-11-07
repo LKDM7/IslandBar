@@ -21,9 +21,12 @@ static class Avatars
     static readonly string Database = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\Windows\Notifications\wpndatabase.db");
 
-    public static string PathFor(uint notificationId) => PathIn(Payload(notificationId));
+    public static string PathFor(uint notificationId) => PathIn(Field("Payload", notificationId));
 
-    static string Payload(uint id)
+    public static string TagFor(uint notificationId) => Field("Tag", notificationId);
+
+
+    static string Field(string column, uint id)
     {
         if (sqlite3_open_v2(Database, out var db, SQLITE_OPEN_READONLY, 0) != SQLITE_OK)
         {
@@ -32,7 +35,7 @@ static class Avatars
         }
         try
         {
-            if (sqlite3_prepare_v2(db, "SELECT Payload FROM Notification WHERE Id = ?", -1, out var statement, 0) != SQLITE_OK) return null;
+            if (sqlite3_prepare_v2(db, $"SELECT {column} FROM Notification WHERE Id = ?", -1, out var statement, 0) != SQLITE_OK) return null;
             try
             {
                 sqlite3_bind_int64(statement, 1, id);

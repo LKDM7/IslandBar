@@ -95,11 +95,13 @@ Pour les applications cochées dans les réglages, IslandBar coupe cette banniè
 
 ## Connexion à Discord
 
-Les notifications Windows de Discord ne contiennent pas l'identifiant du salon. Pour y accéder, IslandBar utilise l'API locale de Discord. Au premier lancement, Discord demande une autorisation à accepter une seule fois.
+Un clic rejoue le clic Windows sur la notification : Discord ouvre lui-même le bon salon, sans compte à connecter ni réglage. Discord ferme sa notification au bout de quelques secondes (encore valable à 11 s, plus à 20 s lors du test). Passé ce délai, le clic ouvre simplement Discord.
+
+Pour retrouver le salon d'une notification plus ancienne, IslandBar utilise l'API locale de Discord, car les notifications Windows ne contiennent pas l'identifiant du salon. Au premier lancement, Discord demande une autorisation à accepter une seule fois.
 
 La connexion passe par l'application Discord définie par `ClientId` dans `DiscordRpc.cs`, en mode **Public Client**, avec la redirection `http://127.0.0.1`. Aucun secret n'est nécessaire.
 
-Discord réserve cet accès aux testeurs d'une application non approuvée. Pour un autre compte, il faut soit être ajouté comme testeur, soit créer sa propre application et remplacer `ClientId`.
+Discord réserve cette API aux testeurs d'une application non approuvée. Elle reste facultative : sans elle, seul le clic sur une notification récente ouvre le bon salon. Pour un autre compte, il faut soit être ajouté comme testeur, soit créer sa propre application et remplacer `ClientId`.
 
 Sans cette autorisation, tout le reste fonctionne : cliquer sur une notification ouvre simplement Discord.
 
@@ -121,6 +123,7 @@ Sans cette autorisation, tout le reste fonctionne : cliquer sur une notification
 - La toute première notification d'une application s'affiche aussi dans Windows : IslandBar ne coupe sa bannière qu'à partir de là.
 - Si IslandBar plante ou est arrêtée de force, les bannières Windows restent coupées jusqu'au prochain lancement suivi d'un « Quitter ».
 - Hors Discord, le clic sur une notification ouvre l'application, pas le message précis.
+- Rejouer le clic passe par un mécanisme interne de Discord, qu'une mise à jour de Discord pourrait changer. Le clic ouvrirait alors simplement Discord.
 - Ouvrir soi-même une application du Microsoft Store n'efface pas toujours ses notifications de la barre : `Suppr` les retire.
 - Changer la sortie audio passe par une interface Windows non documentée, qu'une mise à jour de Windows pourrait casser.
 - Le mode ne pas déranger manuel se désactive au redémarrage de la barre.

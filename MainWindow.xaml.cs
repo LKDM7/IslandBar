@@ -26,6 +26,7 @@ public record Note(string Title, string Body, DateTime When)
 {
     public string Initial => StringInfo.GetNextTextElement(Title).ToUpperInvariant();
     public ImageSource Avatar { get; init; }
+    public string Tag { get; init; } // étiquette Windows : Discord retrouve sa notification avec, voir ToastClick
     public string AppId { get; init; } = ""; // vide : message de l'île elle-même
     public string AppName { get; init; } = "IslandBar";
     public Release Update { get; init; }
@@ -83,7 +84,7 @@ public partial class MainWindow : Window
     Note toast;
     DateTime toastUntil;
     string trackKey, lastError;
-    bool expanded, playing, polling, springing, hidden = true, firstNotificationPoll = true, quietByHand;
+    bool expanded, playing, polling, springing, hidden = true, firstNotificationPoll = true;
     List<AudioOutput> outputs = [];
     TimeSpan duration;
     nint previousWindow;
@@ -250,7 +251,7 @@ public partial class MainWindow : Window
 
     void FillSettings()
     {
-        QuietRow.Content = new Choice("Ne pas déranger", quietByHand, ToggleQuiet);
+        QuietRow.Content = new Choice("Ne pas déranger", settings.Quiet, ToggleQuiet);
         AppsLabel.Text = settings.Apps.Count > 0 ? "Afficher les notifications de" : "Aucune application pour l'instant";
         AppList.ItemsSource = settings.Apps.OrderBy(a => a.Value.Name)
             .Select(a => new Choice(a.Value.Name, a.Value.Show, () => ChooseApp(a.Key, !a.Value.Show))).ToList();
@@ -270,7 +271,9 @@ public partial class MainWindow : Window
 
     void ToggleQuiet()
     {
-        quietByHand = !quietByHand;
+        settings.Quiet = !settings.Quiet;
+        try { settings.Save(); }
+        catch (Exception ex) { Log(ex); }
         FillSettings();
         Apply();
     }
@@ -511,6 +514,12 @@ public partial class MainWindow : Window
     }
 
     // Sans avatar, la notification reste affichée avec son initiale.
+    string LoadTag(uint notificationId)
+    {
+        try { return Avatars.TagFor(notificationId); }
+        catch (Exception ex) { Log(ex); return null; }
+    }
+
     ImageSource LoadAvatar(uint notificationId)
     {
         try
@@ -544,7 +553,7 @@ public partial class MainWindow : Window
                     var name = AppName(n);
                     if (!Wanted(id, name)) continue;
                     var texts = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric).GetTextElements().Select(t => t.Text).ToList();
-                    Show(Note.From(texts, n.CreationTime.LocalDateTime, name) with { AppId = id, Avatar = LoadAvatar(n.Id) });
+                    Show(Note.From(texts, n.CreationTime.LocalDateTime, name) with { AppId = id, Avatar = LoadAvatar(n.Id), Tag = IsDiscord(id) ? LoadTag(n.Id) : null });
                 }
                 catch (Exception ex) { Log(ex); }
             }
@@ -600,7 +609,7 @@ public partial class MainWindow : Window
     static bool Fullscreen => SHQueryUserNotificationState(out var state) == 0
         && state is QUNS_BUSY or QUNS_RUNNING_D3D_FULL_SCREEN or QUNS_PRESENTATION_MODE;
 
-    bool Quiet => quietByHand || Fullscreen;
+    bool Quiet => settings.Quiet || Fullscreen;
 
     static string ForegroundProcess()
     {
@@ -780,7 +789,7 @@ public partial class MainWindow : Window
     void NoteClick(object sender, MouseButtonEventArgs e) =>
         OpenNote((e.OriginalSource as FrameworkElement)?.DataContext as Note);
 
-    void OpenNote(Note note)
+    async void OpenNote(Note note)
     {
         Collapse(restoreFocus: false);
         if (note?.Update != null)
@@ -790,8 +799,24 @@ public partial class MainWindow : Window
         }
         if (note?.AppId == "") return; // message de l'île : il n'y a rien à ouvrir
         if (note != null) notes.Remove(note); // certaines applis du Store ne sont pas reconnues au premier plan
+        if (await Replay(note)) return;
         try { Process.Start(new ProcessStartInfo(LinkFor(note)) { UseShellExecute = true }); }
         catch (Win32Exception ex) { Log(ex); }
+    }
+
+    // Le clic Windows rejoué marche pour tout le monde, sans RPC ni testeurs : Discord ouvre lui-même le salon.
+    // Une notification déjà fermée par Discord (11 s encore bon, 20 s trop tard) est ignorée sans erreur, d'où le contrôle du premier plan.
+    async Task<bool> Replay(Note note)
+    {
+        if (note == null || !IsDiscord(note.AppId)) return false;
+        try
+        {
+            // Hors du fil de l'interface : si Discord est fermé, Windows le relance et l'appel peut durer.
+            if (!await Task.Run(() => ToastClick.Send(note.AppId, note.Tag))) return false;
+            await Task.Delay(1000);
+            return note.FromProcess(ForegroundProcess());
+        }
+        catch (Exception ex) { Log(ex); return false; } // activateur absent : le lien ouvre au moins Discord
     }
 
     // Sans salon connu (Discord non autorisé, ou connexion locale tombée), on ouvre simplement Discord.

@@ -10,7 +10,7 @@ static class AppVolume
 {
     const int eRender = 0, eConsole = 0, eMultimedia = 1, eCommunications = 2, DEVICE_STATE_ACTIVE = 1, CLSCTX_ALL = 23, STGM_READ = 0;
 
-    [DllImport("ole32")] static extern int PropVariantClear(ref PropVariant value);
+    [DllImport("ole32")] internal static extern int PropVariantClear(ref PropVariant value);
 
     // Lit le premier flux trouvé : une app garde le même niveau sur tous ses flux, puisque Set les règle ensemble.
     public static float? Get(string sourceApp)
@@ -133,14 +133,14 @@ static class AppVolume
     }
 
     [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IPropertyStore
+    internal interface IPropertyStore
     {
         void GetCount(out int count);
         void GetAt(int index, out PropertyKey key);
         void GetValue(ref PropertyKey key, out PropVariant value);
     }
 
-    struct PropertyKey
+    internal struct PropertyKey
     {
         public Guid Format;
         public int Id;
@@ -148,7 +148,7 @@ static class AppVolume
 
     // PROPVARIANT réduit à ce qui sert ici : le type, puis le pointeur du texte à l'offset 8.
     [StructLayout(LayoutKind.Sequential, Size = 24)]
-    struct PropVariant
+    internal struct PropVariant
     {
         public long Type;
         public nint Text;

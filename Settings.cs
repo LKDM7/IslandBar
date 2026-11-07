@@ -16,6 +16,7 @@ public class Settings
 
     public Dictionary<string, AppChoice> Apps { get; set; } = [];
     public bool Quiet { get; set; } // ne pas déranger, posé à la main
+    public string Screen { get; set; } // nom Windows de l'écran choisi ; absent : l'écran principal
 
     // Fichier absent ou abîmé : on repart des réglages par défaut plutôt que d'empêcher l'île de démarrer.
     public static Settings Load()

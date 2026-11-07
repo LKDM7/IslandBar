@@ -20,17 +20,27 @@ OutputBaseFilename=IslandBar-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+ShowLanguageDialog=no
 SetupIconFile=..\assets\logo\IslandBar.ico
 UninstallDisplayIcon={app}\IslandBar.exe
 CloseApplications=force
 RestartApplications=no
 
 [Languages]
+Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 
+[CustomMessages]
+en.AutoStart=Start IslandBar with Windows
+fr.AutoStart=Lancer IslandBar au démarrage de Windows
+en.HideBanners=Hide Discord's Windows banners (avoids duplicate notifications)
+fr.HideBanners=Masquer les bannières Windows de Discord (évite les notifications en double)
+en.LaunchNow=Launch IslandBar
+fr.LaunchNow=Lancer IslandBar
+
 [Tasks]
-Name: "autostart"; Description: "Lancer IslandBar au démarrage de Windows"
-Name: "nobanner"; Description: "Masquer les bannières Windows de Discord (évite les notifications en double)"
+Name: "autostart"; Description: "{cm:AutoStart}"
+Name: "nobanner"; Description: "{cm:HideBanners}"
 
 [Files]
 Source: "..\dist\*"; DestDir: "{app}"; Excludes: "*.pdb,*.log"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -43,7 +53,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.squirrel.Discord.Discord"; ValueType: dword; ValueName: "ShowBanner"; ValueData: 0; Flags: uninsdeletevalue; Tasks: nobanner
 
 [Run]
-Filename: "{app}\IslandBar.exe"; Description: "Lancer IslandBar"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\IslandBar.exe"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
 ; Une mise à jour lancée par l'île est silencieuse : c'est elle qui doit relancer l'île.
 Filename: "{app}\IslandBar.exe"; Flags: nowait; Check: WizardSilent
 

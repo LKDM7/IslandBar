@@ -29,8 +29,13 @@ public record Note(string Title, string Body, DateTime When)
     public string Tag { get; init; } // étiquette Windows : Discord retrouve sa notification avec, voir ToastClick
     public string AppId { get; init; } = ""; // vide : message de l'île elle-même
     public string AppName { get; init; } = "IslandBar";
+    public int Count { get; init; } = 1; // messages regroupés sur cette ligne
     public Release Update { get; init; }
     public string Stamp => $"{AppName} · {When:HH:mm}";
+    public string Label => Count > 1 ? $"{Title} ({Count})" : Title;
+
+    // Même appli et même titre : même personne, au même endroit. Les messages de l'île restent séparés.
+    public bool SameChat(Note other) => AppId != "" && AppId == other.AppId && Title == other.Title;
 
     public static Note From(IReadOnlyList<string> texts, DateTime when, string app = "Discord") =>
         new(texts.FirstOrDefault() ?? app, string.Join(" ", texts.Skip(1)).ReplaceLineEndings(" "), when) { AppName = app };
@@ -45,6 +50,7 @@ public record Choice(string Name, bool On, Action Pick);
 public partial class MainWindow : Window
 {
     [DllImport("user32")] static extern bool RegisterHotKey(nint hwnd, int id, uint mods, uint vk);
+    [DllImport("kernel32")] static extern bool SetProcessWorkingSetSize(nint process, nint min, nint max);
     [DllImport("user32")] static extern uint MapVirtualKeyW(uint code, uint type);
     [DllImport("user32")] static extern nint GetForegroundWindow();
     [DllImport("user32")] static extern bool SetForegroundWindow(nint hwnd);
@@ -90,6 +96,7 @@ public partial class MainWindow : Window
     nint previousWindow;
     TimeSpan lastFrame;
     (long, DateTime) notificationStamp;
+    List<string> microphoneApps = [], cameraApps = [];
     int followUps, idlePolls = FullCheckEvery; // le premier passage lit toujours les notifications
 
     public MainWindow()
@@ -104,11 +111,18 @@ public partial class MainWindow : Window
         NoteList.ItemsSource = notes;
         MiniArt.Fill = BigArt.Fill = NoArt;
         Center();
-        SystemEvents.DisplaySettingsChanged += (_, _) => Center();
+        SystemEvents.DisplaySettingsChanged += (_, _) => Dispatcher.BeginInvoke(Center); // cet événement arrive sur un autre fil
         Loaded += OnLoaded;
     }
 
-    void Center() => Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
+    Monitor Chosen(List<Monitor> monitors) => monitors.Find(m => m.Device == settings.Screen) ?? monitors.Find(m => m.Primary);
+
+    void Center()
+    {
+        var monitors = Monitors.All();
+        var scale = monitors.Find(m => m.Primary).Width / SystemParameters.PrimaryScreenWidth;
+        (Left, Top) = Monitors.Place(Chosen(monitors), Width, scale);
+    }
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -117,7 +131,7 @@ public partial class MainWindow : Window
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, GetWindowLongPtrW(hwnd, GWL_EXSTYLE) | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
         HwndSource.FromHwnd(hwnd).AddHook(WndProc);
         if (RegisterHotKey(hwnd, 1, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, MapVirtualKeyW(ScanCodeSquare, MAPVK_VSC_TO_VK))) return;
-        MessageBox.Show("Ctrl + Alt + ² est déjà pris (IslandBar tourne peut-être déjà).", "IslandBar");
+        MessageBox.Show(Strings.HotkeyTaken, "IslandBar");
         Application.Current.Shutdown();
     }
 
@@ -129,13 +143,22 @@ public partial class MainWindow : Window
             listener = UserNotificationListener.Current;
             if (await listener.RequestAccessAsync() == UserNotificationListenerAccessStatus.Allowed) return;
             listener = null;
-            Empty.Text = "Accès refusé : Paramètres Windows › Confidentialité › Notifications";
+            Empty.Text = Strings.AccessDenied;
         });
         _ = new DiscordRpc((title, link) => channelLinks[title] = link, Log).Run();
         Poll();
         // shortcut: polling 1 s au lieu des events, une seule boucle pour tout ; passer aux events si l'app est packagée MSIX
         new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Poll(), Dispatcher).Start();
+        new DispatcherTimer(TimeSpan.FromMinutes(1), DispatcherPriority.Background, (_, _) => FreeMemory(), Dispatcher).Start();
         _ = Safe(CheckUpdates);
+        _ = Safe(() => ScriptNotes.Listen(text =>
+        {
+            Show(new Note("IslandBar", text, DateTime.Now));
+            Apply();
+        }));
+        Sensors.Watch(
+            (microphone, camera) => Dispatcher.BeginInvoke(() => ShowSensors(microphone, camera)),
+            ex => Dispatcher.BeginInvoke(() => Log(ex)));
     }
 
     nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
@@ -179,6 +202,8 @@ public partial class MainWindow : Window
 
     void OnDeactivated(object sender, EventArgs e) => Collapse(restoreFocus: false);
 
+    void PillHover(object sender, MouseEventArgs e) => Apply(); // le nom de l'appli qui écoute s'affiche au survol
+
     void PillRightClick(object sender, MouseButtonEventArgs e)
     {
         if (!expanded) Expand();
@@ -217,6 +242,27 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    // L'île dort presque tout le temps : 150 Mo de mémoire vive tombent à 25 Mo si elle les rend à Windows, sans CPU en plus.
+    void FreeMemory()
+    {
+        if (expanded || springing) return; // pas pendant que l'utilisateur regarde une animation
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        using var process = Process.GetCurrentProcess();
+        SetProcessWorkingSetSize(process.Handle, -1, -1);
+    }
+
+    void ShowSensors(List<string> microphone, List<string> camera)
+    {
+        (microphoneApps, cameraApps) = (microphone, camera);
+        var used = new List<string>();
+        if (microphone.Count > 0) used.Add(Strings.Microphone(string.Join(", ", microphone)));
+        if (camera.Count > 0) used.Add(Strings.Camera(string.Join(", ", camera)));
+        SensorText.Text = string.Join(" · ", used);
+        Apply();
+    }
+
     // Sans île, Windows doit pouvoir afficher lui-même les notifications, sinon une alerte passerait inaperçue.
     void Quit(object sender, RoutedEventArgs e)
     {
@@ -231,9 +277,19 @@ public partial class MainWindow : Window
         var open = menu?.Visibility == Visibility.Visible ? null : menu;
         OutputMenu.Visibility = open == OutputMenu ? Visibility.Visible : Visibility.Collapsed;
         SettingsMenu.Visibility = open == SettingsMenu ? Visibility.Visible : Visibility.Collapsed;
+        if (open != SettingsMenu) ScreenHeader.IsChecked = AppsHeader.IsChecked = false;
         OutputChevron.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(open == OutputMenu ? 180 : 0, TimeSpan.FromMilliseconds(180)));
         if (open == OutputMenu) FillOutputs();
         if (open == SettingsMenu) FillSettings();
+        Apply();
+    }
+
+    // Un seul sous-menu ouvert à la fois : le panneau ne doit pas dépasser de la fenêtre.
+    void SectionClick(object sender, RoutedEventArgs e)
+    {
+        foreach (var section in new[] { ScreenHeader, AppsHeader })
+            if (section != sender) section.IsChecked = false;
+        UpdateLayout(); // Apply mesure le panneau, et ces lignes sont trop profondes pour l'invalider seules
         Apply();
     }
 
@@ -251,8 +307,16 @@ public partial class MainWindow : Window
 
     void FillSettings()
     {
-        QuietRow.Content = new Choice("Ne pas déranger", settings.Quiet, ToggleQuiet);
-        AppsLabel.Text = settings.Apps.Count > 0 ? "Afficher les notifications de" : "Aucune application pour l'instant";
+        QuietRow.Content = new Choice(Strings.DoNotDisturb, settings.Quiet, ToggleQuiet);
+        var monitors = Monitors.All();
+        ScreenChoice.Visibility = monitors.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        var chosen = Chosen(monitors);
+        ScreenHeader.Tag = Strings.Screen(chosen.Number, chosen.Primary);
+        ScreenList.ItemsSource = monitors.Select(m => new Choice(Strings.Screen(m.Number, m.Primary), m == chosen, () => ChooseScreen(m))).ToList();
+        var seen = settings.Apps.Count;
+        AppsHeader.IsEnabled = seen > 0;
+        AppsHeader.Content = seen > 0 ? Strings.ShowFrom : Strings.NoApps;
+        AppsHeader.Tag = seen > 0 ? Strings.OutOf(settings.Apps.Values.Count(a => a.Show), seen) : "";
         AppList.ItemsSource = settings.Apps.OrderBy(a => a.Value.Name)
             .Select(a => new Choice(a.Value.Name, a.Value.Show, () => ChooseApp(a.Key, !a.Value.Show))).ToList();
     }
@@ -269,13 +333,25 @@ public partial class MainWindow : Window
         FillSettings();
     }
 
-    void ToggleQuiet()
+    void SaveSettings()
     {
-        settings.Quiet = !settings.Quiet;
         try { settings.Save(); }
         catch (Exception ex) { Log(ex); }
         FillSettings();
+    }
+
+    void ToggleQuiet()
+    {
+        settings.Quiet = !settings.Quiet;
+        SaveSettings();
         Apply();
+    }
+
+    void ChooseScreen(Monitor monitor)
+    {
+        settings.Screen = monitor.Device;
+        SaveSettings();
+        Center();
     }
 
     // --- Rendu ---
@@ -285,13 +361,18 @@ public partial class MainWindow : Window
         var quiet = Quiet;
         var badge = notes.Count > 0 && !quiet;
         Badge.Visibility = badge ? Visibility.Visible : Visibility.Collapsed;
-        BadgeText.Text = notes.Count.ToString();
+        BadgeText.Text = notes.Sum(n => n.Count).ToString();
         Empty.Visibility = notes.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
-        NotesHeader.Text = quiet ? "Notifications · Ne pas déranger" : "Notifications";
+        NotesHeader.Text = quiet ? Strings.NotificationsQuiet : Strings.Notifications;
         MiniArt.Visibility = MiniTitle.Visibility = Bars.Visibility = playing ? Visibility.Visible : Visibility.Collapsed;
 
+        var sensing = microphoneApps.Count + cameraApps.Count > 0;
+        MicDot.Visibility = microphoneApps.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        CameraDot.Visibility = cameraApps.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SensorText.Visibility = sensing && Pill.IsMouseOver ? Visibility.Visible : Visibility.Collapsed;
+
         // Rien à montrer : l'île disparaît, et un pixel à alpha 0 laisse passer les clics vers la fenêtre dessous.
-        var hide = !expanded && toast == null && !playing && !badge;
+        var hide = !expanded && toast == null && !playing && !badge && !sensing;
         if (hide != hidden)
         {
             hidden = hide;
@@ -418,7 +499,7 @@ public partial class MainWindow : Window
         if (session == null)
         {
             trackKey = null;
-            TrackTitle.Text = "Rien en lecture";
+            TrackTitle.Text = Strings.NothingPlaying;
             TrackArtist.Text = MiniTitle.Text = "";
             MiniArt.Fill = BigArt.Fill = NoArt;
             SetAccent(NoArt);
@@ -589,6 +670,12 @@ public partial class MainWindow : Window
 
     void Show(Note note)
     {
+        var same = notes.FirstOrDefault(note.SameChat);
+        if (same != null)
+        {
+            notes.Remove(same);
+            note = note with { Count = same.Count + 1, Avatar = note.Avatar ?? same.Avatar };
+        }
         notes.Insert(0, note);
         while (notes.Count > MaxNotes) notes.RemoveAt(notes.Count - 1);
         if (firstNotificationPoll || expanded || Quiet) return;
@@ -626,13 +713,13 @@ public partial class MainWindow : Window
     {
         Release release;
         while ((release = await Updater.Check()) == null) await Task.Delay(TimeSpan.FromHours(6));
-        Show(new Note($"Version {release.Tag.TrimStart('v')} disponible", "Clique pour l'installer", DateTime.Now) { Update = release });
+        Show(new Note(Strings.VersionAvailable(release.Tag.TrimStart('v')), Strings.ClickToInstall, DateTime.Now) { Update = release });
     }
 
     async void InstallUpdate(Note note)
     {
         notes.Remove(note); // un second clic relancerait le téléchargement
-        Flash("Téléchargement en cours…", 120);
+        Flash(Strings.Downloading, 120);
         try
         {
             await Updater.Install(note.Update);
@@ -642,7 +729,7 @@ public partial class MainWindow : Window
         {
             Log(ex);
             notes.Insert(0, note);
-            Flash("Mise à jour impossible", ToastSeconds);
+            Flash(Strings.UpdateFailed, ToastSeconds);
         }
     }
 
@@ -724,7 +811,7 @@ public partial class MainWindow : Window
     void ShowVolume(double level)
     {
         VolumeScale.ScaleX = level;
-        VolumeText.Text = $"{level * 100:0} %";
+        VolumeText.Text = Strings.Percent(level * 100);
     }
 
     void SetVolume(double level)
@@ -748,7 +835,7 @@ public partial class MainWindow : Window
     {
         if (VolumeTrack.IsMouseCaptured) VolumeFromMouse(e);
         var fraction = Fraction(e, VolumeTrack);
-        Preview(VolumePreview, fraction, $"{fraction * 100:0} %");
+        Preview(VolumePreview, fraction, Strings.Percent(fraction * 100));
     }
 
     void VolumeUp(object sender, MouseButtonEventArgs e) => VolumeTrack.ReleaseMouseCapture();

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
 
 namespace IslandBar;
@@ -15,6 +16,9 @@ static class Program
             Settings.Load().SetBanners(show: true);
             return 0;
         }
+        if (args.Length == 2 && args[0] == "--notify") return ScriptNotes.Send(args[1]);
+        // Sans la carte graphique : 25 Mo de moins, et pas plus de CPU pour une fenêtre aussi petite.
+        RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
         return new Application().Run(new MainWindow());
     }
 
@@ -69,6 +73,17 @@ static class Program
             && DiscordRpc.Link("123", "456&calc") == null
             && DiscordRpc.Link("1/../2", "456") == null
             && DiscordRpc.Link("123", null) == null
+            && new Note("Alice", "2", t) { AppId = "a", Count = 3 }.Label == "Alice (3)"
+            && new Note("Alice", "2", t) { AppId = "a" }.Label == "Alice"
+            && new Note("Alice", "2", t) { AppId = "a" }.SameChat(new Note("Alice", "1", t) { AppId = "a" })
+            && !new Note("Alice", "2", t) { AppId = "a" }.SameChat(new Note("Bob", "1", t) { AppId = "a" })
+            && !new Note("Alice", "2", t) { AppId = "a" }.SameChat(new Note("Alice", "1", t) { AppId = "b" })
+            && !new Note("IslandBar", "2", t).SameChat(new Note("IslandBar", "1", t))
+            && Monitors.Place(new(@"\\.\DISPLAY2", -1920, 156, 1920, false), 460, 1) == (-1190, 156)
+            && Monitors.Place(new(@"\\.\DISPLAY1", 0, 0, 2560, true), 460, 1.5) == (1280 / 1.5 - 230, 0)
+            && new Monitor(@"\\.\DISPLAY2", 0, 0, 1, false).Number == 2
+            && Sensors.AppName((uint)Environment.ProcessId) is { Length: > 0 }
+            && Sensors.AppName(uint.MaxValue) == null
             && Math.Abs(MainWindow.BarScale(0, 0) - .35) < 1e-9
             && Math.Abs(MainWindow.BarScale(.3, 0) - 1) < 1e-9
             && Math.Abs(MainWindow.BarScale(.45, 0) - .675) < 1e-9

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -8,7 +9,13 @@ public record AudioOutput(string Id, string Name);
 // Volume d'une seule application, celui du mélangeur de volume Windows : le volume général n'est jamais modifié.
 static class AppVolume
 {
-    const int eRender = 0, eConsole = 0, eMultimedia = 1, eCommunications = 2, DEVICE_STATE_ACTIVE = 1, CLSCTX_ALL = 23, STGM_READ = 0;
+    const int eRender = 0, eCapture = 1, eConsole = 0, eMultimedia = 1, eCommunications = 2, DEVICE_STATE_ACTIVE = 1, CLSCTX_ALL = 23, STGM_READ = 0, AudioSessionStateActive = 1;
+
+    static IMMDeviceEnumerator captureEnumerator;
+    static SessionListener listener;
+    static List<IAudioSessionManager2> microphones = [];
+    static List<IAudioSessionControl2> captures = [];
+    static readonly ConcurrentQueue<IAudioSessionControl2> created = new();
 
     [DllImport("ole32")] internal static extern int PropVariantClear(ref PropVariant value);
 
@@ -83,10 +90,7 @@ static class AppVolume
         devices.GetCount(out var deviceCount);
         for (var d = 0; d < deviceCount; d++)
         {
-            devices.Item(d, out var device);
-            var managerId = typeof(IAudioSessionManager2).GUID;
-            device.Activate(ref managerId, CLSCTX_ALL, 0, out var manager);
-            ((IAudioSessionManager2)manager).GetSessionEnumerator(out var sessions);
+            Manager(devices, d).GetSessionEnumerator(out var sessions);
             sessions.GetCount(out var sessionCount);
             for (var s = 0; s < sessionCount; s++)
             {
@@ -95,6 +99,103 @@ static class AppVolume
                 if (Matches(sourceApp, ProcessName(pid))) yield return (ISimpleAudioVolume)control;
             }
         }
+    }
+
+    static IAudioSessionManager2 Manager(IMMDeviceCollection devices, int index)
+    {
+        devices.Item(index, out var device);
+        var managerId = typeof(IAudioSessionManager2).GUID;
+        device.Activate(ref managerId, CLSCTX_ALL, 0, out var manager);
+        Marshal.ReleaseComObject(device);
+        return (IAudioSessionManager2)manager;
+    }
+
+    // Processus qui écoutent un micro en ce moment. moved est appelé dès que Windows signale un changement : relire
+    // les sessions à intervalle fixe n'est pas possible, GetSessionEnumerator garde 2 Ko de mémoire à chaque appel.
+    // À appeler toujours depuis le même fil : Windows interdit d'inscrire une session depuis ses propres rappels.
+    public static List<uint> Capturing(Action moved)
+    {
+        var pids = new List<uint>();
+        try
+        {
+            listener ??= new(moved);
+            captureEnumerator ??= (IMMDeviceEnumerator)new MMDeviceEnumerator();
+            captureEnumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE, out var devices);
+            devices.GetCount(out var count);
+            if (count != microphones.Count) OpenMicrophones(devices, count);
+            Marshal.ReleaseComObject(devices);
+            while (created.TryDequeue(out var session)) Follow(session);
+            foreach (var session in captures.ToList())
+            {
+                session.GetState(out var state);
+                session.GetProcessId(out var pid);
+                if (state == AudioSessionStateActive) pids.Add(pid);
+                else if (ProcessName(pid) == "") Unfollow(session); // notre référence empêche Windows d'expirer la session
+            }
+        }
+        catch (COMException) { (microphones, captures) = ([], []); } // micro débranché : on rouvre tout au prochain passage
+        return pids;
+    }
+
+    static void OpenMicrophones(IMMDeviceCollection devices, int count)
+    {
+        foreach (var session in captures.ToList()) Unfollow(session);
+        foreach (var manager in microphones) manager.UnregisterSessionNotification(listener);
+        microphones = Enumerable.Range(0, count).Select(d => Manager(devices, d)).ToList();
+        foreach (var manager in microphones)
+        {
+            manager.RegisterSessionNotification(listener);
+            manager.GetSessionEnumerator(out var sessions);
+            sessions.GetCount(out var sessionCount);
+            for (var s = 0; s < sessionCount; s++)
+            {
+                sessions.GetSession(s, out var control);
+                Follow(control);
+            }
+            Marshal.ReleaseComObject(sessions);
+        }
+    }
+
+    static void Follow(IAudioSessionControl2 session)
+    {
+        session.RegisterAudioSessionNotification(listener);
+        captures.Add(session);
+    }
+
+    static void Unfollow(IAudioSessionControl2 session)
+    {
+        session.UnregisterAudioSessionNotification(listener);
+        captures.Remove(session);
+        Marshal.ReleaseComObject(session);
+    }
+
+    // Une seule instance : Windows ne dit pas quelle session a bougé, et il suffit de tout relire.
+    class SessionListener(Action moved) : IAudioSessionNotification, IAudioSessionEvents
+    {
+        public int OnSessionCreated(IAudioSessionControl2 session)
+        {
+            created.Enqueue(session);
+            moved();
+            return 0;
+        }
+
+        public int OnStateChanged(int state)
+        {
+            moved();
+            return 0;
+        }
+
+        public int OnSessionDisconnected(int reason)
+        {
+            moved();
+            return 0;
+        }
+
+        public int OnDisplayNameChanged(nint name, nint context) => 0;
+        public int OnIconPathChanged(nint path, nint context) => 0;
+        public int OnSimpleVolumeChanged(float volume, int muted, nint context) => 0;
+        public int OnChannelVolumeChanged(int channels, nint volumes, int channel, nint context) => 0;
+        public int OnGroupingParamChanged(nint group, nint context) => 0;
     }
 
     static string ProcessName(uint pid)
@@ -181,6 +282,27 @@ static class AppVolume
         void GetAudioSessionControl(nint sessionId, int flags, out nint control);
         void GetSimpleAudioVolume(nint sessionId, int flags, out nint volume);
         void GetSessionEnumerator(out IAudioSessionEnumerator sessions);
+        void RegisterSessionNotification(IAudioSessionNotification client);
+        void UnregisterSessionNotification(IAudioSessionNotification client);
+    }
+
+    [ComImport, Guid("641DD20B-4D41-49CC-ABA3-174B9477BB08"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioSessionNotification
+    {
+        [PreserveSig] int OnSessionCreated(IAudioSessionControl2 session);
+    }
+
+    // L'ordre de la vtable compte, comme plus bas.
+    [ComImport, Guid("24918ACC-64B3-37C1-8CA9-74A66E9957A8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioSessionEvents
+    {
+        [PreserveSig] int OnDisplayNameChanged(nint name, nint context);
+        [PreserveSig] int OnIconPathChanged(nint path, nint context);
+        [PreserveSig] int OnSimpleVolumeChanged(float volume, int muted, nint context);
+        [PreserveSig] int OnChannelVolumeChanged(int channels, nint volumes, int channel, nint context);
+        [PreserveSig] int OnGroupingParamChanged(nint group, nint context);
+        [PreserveSig] int OnStateChanged(int state);
+        [PreserveSig] int OnSessionDisconnected(int reason);
     }
 
     [ComImport, Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -201,8 +323,8 @@ static class AppVolume
         void SetIconPath(nint path, ref Guid context);
         void GetGroupingParam(out Guid group);
         void SetGroupingParam(ref Guid group, ref Guid context);
-        void RegisterAudioSessionNotification(nint client);
-        void UnregisterAudioSessionNotification(nint client);
+        void RegisterAudioSessionNotification(IAudioSessionEvents client);
+        void UnregisterAudioSessionNotification(IAudioSessionEvents client);
         void GetSessionIdentifier(out nint id);
         void GetSessionInstanceIdentifier(out nint id);
         void GetProcessId(out uint pid);

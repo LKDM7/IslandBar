@@ -29,6 +29,14 @@ Quand la barre est visible, un clic l'ouvre aussi. Un clic droit permet de la qu
 
 ## Installation
 
+Télécharge [`IslandBar-Setup.exe`](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe) depuis les [Releases](https://github.com/LKDM7/IslandBar/releases), puis lance-le. Il faut seulement Windows 11 (x64) et Discord pour ordinateur : .NET est inclus et aucun droit administrateur n'est demandé.
+
+L'installateur n'est pas signé. Si Windows SmartScreen s'affiche, clique sur **Informations complémentaires**, puis sur **Exécuter quand même**.
+
+L'assistant propose de lancer IslandBar au démarrage de Windows et de masquer les bannières Windows de Discord. La désinstallation se fait depuis Paramètres › Applications et efface aussi le jeton Discord.
+
+## Compiler depuis les sources
+
 Il faut Windows 11, Discord pour ordinateur et le [SDK .NET 9](https://dotnet.microsoft.com/download/dotnet/9.0).
 
 ```powershell
@@ -53,9 +61,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -o dist
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\IslandBar.iss
 ```
 
-Le fichier `installer\Output\IslandBar-Setup.exe` embarque .NET : il n'y a rien d'autre à installer, et aucun droit administrateur n'est nécessaire. La désinstallation se fait depuis les Paramètres Windows et efface aussi le jeton Discord.
-
-L'installateur n'est pas signé : Windows SmartScreen affiche un avertissement au premier lancement.
+Le résultat est `installer\Output\IslandBar-Setup.exe`.
 
 ### Réglages Windows conseillés
 

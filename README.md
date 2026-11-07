@@ -2,6 +2,8 @@
 
 Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible tant qu'il n'y a rien à montrer, puis apparaît en haut de l'écran pour afficher ta musique et tes notifications Discord.
 
+**[⬇ Télécharger IslandBar-Setup.exe](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe)**
+
 > Application conçue et codée avec **Claude Opus 5.5** d'Anthropic, dans Claude Code.
 
 ## Ce qu'elle fait

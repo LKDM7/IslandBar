@@ -6,5 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <StartupObject>IslandBar.Program</StartupObject>
+    <!-- Les infos de débogage gravent le chemin local, donc le nom du compte Windows, dans l'exe publié. -->
+    <DebugType>none</DebugType>
   </PropertyGroup>
 </Project>

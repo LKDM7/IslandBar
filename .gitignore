@@ -1,6 +1,8 @@
 bin/
 obj/
 app/
+dist/
+installer/Output/
 .vs/
 .claude-flow/
 *.user

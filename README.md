@@ -44,9 +44,22 @@ Pour vérifier la logique interne (0 = OK) :
 .\app\IslandBar.exe --selftest; $LASTEXITCODE
 ```
 
+### Créer l'installateur
+
+Il faut [Inno Setup 6](https://jrsoftware.org/isinfo.php) en plus du SDK.
+
+```powershell
+dotnet publish -c Release -r win-x64 --self-contained true -o dist
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\IslandBar.iss
+```
+
+Le fichier `installer\Output\IslandBar-Setup.exe` embarque .NET : il n'y a rien d'autre à installer, et aucun droit administrateur n'est nécessaire. La désinstallation se fait depuis les Paramètres Windows et efface aussi le jeton Discord.
+
+L'installateur n'est pas signé : Windows SmartScreen affiche un avertissement au premier lancement.
+
 ### Réglages Windows conseillés
 
-L'application ne les pose pas elle-même.
+L'installateur les propose. Sans lui, l'application ne les pose pas elle-même.
 
 Lancer IslandBar au démarrage de Windows :
 

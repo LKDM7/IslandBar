@@ -39,6 +39,8 @@ public record Note(string Title, string Body, DateTime When)
         AppId != "" && process != "" && AppId.Split('!')[0].Contains(process, StringComparison.OrdinalIgnoreCase);
 }
 
+public record Choice(string Name, bool On, Action Pick);
+
 public partial class MainWindow : Window
 {
     [DllImport("user32")] static extern bool RegisterHotKey(nint hwnd, int id, uint mods, uint vk);
@@ -55,13 +57,15 @@ public partial class MainWindow : Window
     const uint ScanCodeSquare = 0x29; // la touche à gauche de "1" : ² en AZERTY, quelle que soit la disposition
     const int QUNS_BUSY = 2, QUNS_RUNNING_D3D_FULL_SCREEN = 3, QUNS_PRESENTATION_MODE = 4;
 
-    const double ToastSeconds = 5, MaxNotes = 30, VolumeStep = .05;
+    const double ToastSeconds = 5, MaxNotes = 30, VolumeStep = .05, BarFps = 15;
     const double Stiffness = 230, Damping = 23; // amortissement < 1 : le léger rebond façon iOS
 
     static readonly Geometry PlayGeometry = Geometry.Parse("M7 4.5v15l12.5-7.5z");
     static readonly Geometry PauseGeometry = Geometry.Parse("M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z");
     static readonly Brush NoArt = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2E));
     static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "IslandBar.log");
+    static readonly string NotificationWal = Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db-wal");
+    const int FullCheckEvery = 10;
 
     readonly ObservableCollection<Note> notes = [];
     readonly HashSet<uint> seen = [];
@@ -69,6 +73,8 @@ public partial class MainWindow : Window
     readonly double[] size = [96, 28, 14], velocity = new double[3], goal = [96, 28, 14]; // largeur, hauteur, rayon
     readonly Settings settings = Settings.Load();
     readonly SolidColorBrush accent = new(Colors.White);
+    readonly ScaleTransform[] barScales;
+    readonly DispatcherTimer wave;
 
     GlobalSystemMediaTransportControlsSessionManager media;
     Session session;
@@ -79,8 +85,11 @@ public partial class MainWindow : Window
     string trackKey, lastError;
     bool expanded, playing, polling, springing, hidden = true, firstNotificationPoll = true, quietByHand;
     List<AudioOutput> outputs = [];
+    TimeSpan duration;
     nint previousWindow;
     TimeSpan lastFrame;
+    (long, DateTime) notificationStamp;
+    int followUps, idlePolls = FullCheckEvery; // le premier passage lit toujours les notifications
 
     public MainWindow()
     {
@@ -88,6 +97,8 @@ public partial class MainWindow : Window
         // Posé à la main : un pinceau placé dans les ressources est gelé par WPF, et celui-ci s'anime.
         ProgressFill.Fill = accent;
         foreach (System.Windows.Shapes.Shape bar in Bars.Children) bar.Fill = accent;
+        barScales = Bars.Children.Cast<UIElement>().Select(bar => (ScaleTransform)(bar.RenderTransform = new ScaleTransform(1, .35))).ToArray();
+        wave = new DispatcherTimer(TimeSpan.FromSeconds(1.0 / BarFps), DispatcherPriority.Render, (_, _) => Wave(), Dispatcher) { IsEnabled = false };
         shown = Compact;
         NoteList.ItemsSource = notes;
         MiniArt.Fill = BigArt.Fill = NoArt;
@@ -113,6 +124,7 @@ public partial class MainWindow : Window
     {
         await Safe(async () =>
         {
+            settings.SetBanners(show: false); // l'île prend le relais tant qu'elle tourne, voir Quit
             listener = UserNotificationListener.Current;
             if (await listener.RequestAccessAsync() == UserNotificationListenerAccessStatus.Allowed) return;
             listener = null;
@@ -153,7 +165,7 @@ public partial class MainWindow : Window
         expanded = false;
         SetNoActivate(true);
         if (restoreFocus) SetForegroundWindow(previousWindow);
-        Apply();
+        Unfold(null);
     }
 
     // La barre ne doit jamais voler le focus, sauf quand on l'ouvre pour la piloter au clavier.
@@ -165,6 +177,12 @@ public partial class MainWindow : Window
     }
 
     void OnDeactivated(object sender, EventArgs e) => Collapse(restoreFocus: false);
+
+    void PillRightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (!expanded) Expand();
+        if (!SettingsMenu.IsVisible) Unfold(SettingsMenu);
+    }
 
     void PillClick(object sender, MouseButtonEventArgs e)
     {
@@ -190,7 +208,7 @@ public partial class MainWindow : Window
             case Key.Right: Next(null, null); break;
             case Key.Up: SetVolume(VolumeScale.ScaleX + VolumeStep); break;
             case Key.Down: SetVolume(VolumeScale.ScaleX - VolumeStep); break;
-            case Key.S: OutputMenu(null, null); break;
+            case Key.S: OutputClick(null, null); break;
             case Key.Enter: OpenNote(notes.FirstOrDefault()); break;
             case Key.Delete: ClearNotes(null, null); break;
             default: return;
@@ -198,20 +216,44 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    void Quit(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
-
-    void MenuOpened(object sender, RoutedEventArgs e)
+    // Sans île, Windows doit pouvoir afficher lui-même les notifications, sinon une alerte passerait inaperçue.
+    void Quit(object sender, RoutedEventArgs e)
     {
-        QuietItem.IsChecked = quietByHand;
-        AppsMenu.IsEnabled = settings.Apps.Count > 0;
-        AppsMenu.Items.Clear();
-        foreach (var (id, app) in settings.Apps.OrderBy(a => a.Value.Name))
-        {
-            var item = Item(app.Name);
-            (item.IsCheckable, item.IsChecked, item.StaysOpenOnClick) = (true, app.Show, true);
-            item.Click += (_, _) => ChooseApp(id, item.IsChecked);
-            AppsMenu.Items.Add(item);
-        }
+        try { settings.SetBanners(show: true); }
+        catch (Exception ex) { Log(ex); }
+        Application.Current.Shutdown();
+    }
+
+    // Les menus se déroulent dans l'île, qui s'agrandit avec eux ; un seul à la fois.
+    void Unfold(FrameworkElement menu)
+    {
+        var open = menu?.Visibility == Visibility.Visible ? null : menu;
+        OutputMenu.Visibility = open == OutputMenu ? Visibility.Visible : Visibility.Collapsed;
+        SettingsMenu.Visibility = open == SettingsMenu ? Visibility.Visible : Visibility.Collapsed;
+        OutputChevron.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(open == OutputMenu ? 180 : 0, TimeSpan.FromMilliseconds(180)));
+        if (open == OutputMenu) FillOutputs();
+        if (open == SettingsMenu) FillSettings();
+        Apply();
+    }
+
+    void ChoiceClick(object sender, RoutedEventArgs e) => ((Choice)((FrameworkElement)sender).DataContext).Pick();
+
+    void GearClick(object sender, RoutedEventArgs e) => Unfold(SettingsMenu);
+
+    void OutputClick(object sender, RoutedEventArgs e)
+    {
+        if (OutputRow.IsVisible) Unfold(OutputMenu);
+    }
+
+    void FillOutputs() =>
+        OutputList.ItemsSource = outputs.Select(o => new Choice(o.Name, o.Name == OutputText.Text, () => ChooseOutput(o))).ToList();
+
+    void FillSettings()
+    {
+        QuietRow.Content = new Choice("Ne pas déranger", quietByHand, ToggleQuiet);
+        AppsLabel.Text = settings.Apps.Count > 0 ? "Afficher les notifications de" : "Aucune application pour l'instant";
+        AppList.ItemsSource = settings.Apps.OrderBy(a => a.Value.Name)
+            .Select(a => new Choice(a.Value.Name, a.Value.Show, () => ChooseApp(a.Key, !a.Value.Show))).ToList();
     }
 
     void ChooseApp(string id, bool show)
@@ -223,11 +265,13 @@ public partial class MainWindow : Window
             settings.Save();
         }
         catch (Exception ex) { Log(ex); }
+        FillSettings();
     }
 
-    void QuietClick(object sender, RoutedEventArgs e)
+    void ToggleQuiet()
     {
-        quietByHand = QuietItem.IsChecked;
+        quietByHand = !quietByHand;
+        FillSettings();
         Apply();
     }
 
@@ -280,6 +324,7 @@ public partial class MainWindow : Window
                 layer.BeginAnimation(OpacityProperty, new DoubleAnimation(layer == next ? 1 : 0, TimeSpan.FromMilliseconds(layer == next ? 240 : 90)));
             }
         }
+        wave.IsEnabled = playing && next == Compact && !Fullscreen; // l'égaliseur est le plus gros poste : à l'arrêt dès qu'il est invisible
 
         if (goal[0] == width && goal[1] == height && goal[2] == radius) return;
         (goal[0], goal[1], goal[2]) = (width, height, radius);
@@ -314,16 +359,17 @@ public partial class MainWindow : Window
         Pill.Clip = new RectangleGeometry(new Rect(0, 0, size[0], size[1]), size[2], size[2]);
     }
 
-    void SetBars(bool animate)
+    // Une seule horloge pour les quatre barres : elles changent ensemble, donc un seul dessin par tick.
+    void Wave()
     {
-        var i = 0;
-        foreach (FrameworkElement bar in Bars.Children)
-        {
-            if (bar.RenderTransform is not ScaleTransform scale) bar.RenderTransform = scale = new ScaleTransform(1, .35);
-            var wave = new DoubleAnimation(.35, 1, TimeSpan.FromMilliseconds(300 + 90 * i++)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
-            Timeline.SetDesiredFrameRate(wave, 24); // l'animation tourne en continu : on limite le CPU
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, animate ? wave : null); // null arrête l'horloge, sinon WPF redessine en pause
-        }
+        var seconds = Environment.TickCount64 / 1000.0;
+        for (var i = 0; i < barScales.Length; i++) barScales[i].ScaleY = BarScale(seconds, i);
+    }
+
+    public static double BarScale(double seconds, int bar)
+    {
+        var phase = seconds / (.3 + .09 * bar) % 2; // chaque barre a sa période
+        return .35 + .65 * (phase < 1 ? phase : 2 - phase);
     }
 
     // --- Boucle de mise à jour ---
@@ -363,9 +409,7 @@ public partial class MainWindow : Window
     {
         media ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
         session = media.GetSessions().FirstOrDefault(IsPlaying) ?? media.GetCurrentSession();
-        var nowPlaying = session != null && IsPlaying(session);
-        if (nowPlaying != playing) SetBars(nowPlaying);
-        playing = nowPlaying;
+        playing = session != null && IsPlaying(session);
         PlayIcon.Data = playing ? PauseGeometry : PlayGeometry;
 
         if (session == null)
@@ -392,6 +436,7 @@ public partial class MainWindow : Window
         }
 
         var time = session.GetTimelineProperties();
+        duration = time.EndTime;
         TimeRow.Visibility = time.EndTime > TimeSpan.Zero ? Visibility.Visible : Visibility.Collapsed;
         if (time.EndTime <= TimeSpan.Zero) return;
         var seekable = session.GetPlaybackInfo().Controls.IsPlaybackPositionEnabled;
@@ -485,36 +530,52 @@ public partial class MainWindow : Window
     async Task PollNotifications()
     {
         if (listener == null) return;
-        var current = await listener.GetNotificationsAsync(NotificationKinds.Toast);
-        foreach (var n in current.OrderBy(n => n.CreationTime))
+        if (NotificationsMoved())
         {
-            if (!seen.Add(n.Id)) continue;
-            // Discord retire parfois ses toasts lui-même : on garde notre copie jusqu'à ce qu'ils soient lus.
-            try
+            var current = await listener.GetNotificationsAsync(NotificationKinds.Toast);
+            foreach (var n in current.OrderBy(n => n.CreationTime))
             {
-                var id = n.AppInfo?.AppUserModelId;
-                if (id == null) continue;
-                var name = AppName(n);
-                if (!Wanted(id, name)) continue;
-                var texts = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric).GetTextElements().Select(t => t.Text).ToList();
-                Show(Note.From(texts, n.CreationTime.LocalDateTime, name) with { AppId = id, Avatar = LoadAvatar(n.Id) });
+                if (!seen.Add(n.Id)) continue;
+                // Discord retire parfois ses toasts lui-même : on garde notre copie jusqu'à ce qu'ils soient lus.
+                try
+                {
+                    var id = n.AppInfo?.AppUserModelId;
+                    if (id == null) continue;
+                    var name = AppName(n);
+                    if (!Wanted(id, name)) continue;
+                    var texts = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric).GetTextElements().Select(t => t.Text).ToList();
+                    Show(Note.From(texts, n.CreationTime.LocalDateTime, name) with { AppId = id, Avatar = LoadAvatar(n.Id) });
+                }
+                catch (Exception ex) { Log(ex); }
             }
-            catch (Exception ex) { Log(ex); }
+            firstNotificationPoll = false;
         }
-        firstNotificationPoll = false;
+        if (notes.Count == 0) return;
         var process = ForegroundProcess();
         foreach (var read in notes.Where(n => n.FromProcess(process)).ToList()) notes.Remove(read); // ouvrir l'appli vaut lecture
     }
 
-    // Toute appli vue rejoint le menu, mais seule Discord s'affiche sans avoir été cochée.
+    // GetNotificationsAsync est l'appel le plus cher de la boucle (5 ms) : on attend que la base de Windows bouge.
+    // Son journal change 30 à 50 ms après une notif et reste immobile sinon ; le relevé régulier couvre un Windows qui ferait autrement.
+    bool NotificationsMoved()
+    {
+        var wal = new FileInfo(NotificationWal);
+        var stamp = wal.Exists ? (wal.Length, wal.LastWriteTimeUtc) : default;
+        if (stamp != notificationStamp) (notificationStamp, followUps) = (stamp, 2); // deux lectures : Windows peut écrire avant de publier
+        if (followUps == 0 && ++idlePolls < FullCheckEvery) return false;
+        if (followUps > 0) followUps--;
+        idlePolls = 0;
+        return true;
+    }
+
+    // Toute appli s'affiche d'office : le menu sert à retirer celles qu'on ne veut pas voir.
     bool Wanted(string id, string name)
     {
-        if (!settings.Apps.TryGetValue(id, out var app))
-        {
-            settings.Apps[id] = app = new(name, IsDiscord(id));
-            settings.Save();
-        }
-        return app.Show;
+        if (settings.Apps.TryGetValue(id, out var app)) return app.Show;
+        settings.Apps[id] = new(name, true);
+        Settings.SetBanner(id, show: false);
+        settings.Save();
+        return true;
     }
 
     void Show(Note note)
@@ -536,8 +597,10 @@ public partial class MainWindow : Window
     static bool IsDiscord(string appId) => appId.Contains("discord", StringComparison.OrdinalIgnoreCase);
 
     // Jeu ou vidéo en plein écran, présentation, ou choix manuel : les notifications attendent dans le badge.
-    bool Quiet => quietByHand || SHQueryUserNotificationState(out var state) == 0
+    static bool Fullscreen => SHQueryUserNotificationState(out var state) == 0
         && state is QUNS_BUSY or QUNS_RUNNING_D3D_FULL_SCREEN or QUNS_PRESENTATION_MODE;
+
+    bool Quiet => quietByHand || Fullscreen;
 
     static string ForegroundProcess()
     {
@@ -596,12 +659,25 @@ public partial class MainWindow : Window
     void Prev(object sender, RoutedEventArgs e) => Control(s => s.TrySkipPreviousAsync());
     void Next(object sender, RoutedEventArgs e) => Control(s => s.TrySkipNextAsync());
 
+    static double Fraction(MouseEventArgs e, FrameworkElement track) =>
+        Math.Clamp(e.GetPosition(track).X / track.ActualWidth, 0, 1);
+
+    // Au survol, un repère et une bulle montrent où mènerait le clic.
+    static void Preview(Canvas overlay, double fraction, string text)
+    {
+        var (tick, bubble) = ((FrameworkElement)overlay.Children[0], (Border)overlay.Children[1]);
+        var x = fraction * ((FrameworkElement)overlay.Parent).ActualWidth;
+        ((TextBlock)bubble.Child).Text = text;
+        bubble.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Canvas.SetLeft(bubble, x - bubble.DesiredSize.Width / 2);
+        Canvas.SetLeft(tick, x - tick.Width / 2);
+    }
+
     void SeekFromMouse(MouseEventArgs e)
     {
-        if (session == null) return;
-        var fraction = Math.Clamp(e.GetPosition(ProgressTrack).X / ProgressTrack.ActualWidth, 0, 1);
+        var fraction = Fraction(e, ProgressTrack);
         ProgressScale.ScaleX = fraction;
-        TimeNow.Text = Clock(session.GetTimelineProperties().EndTime * fraction);
+        TimeNow.Text = Clock(duration * fraction);
     }
 
     void SeekDown(object sender, MouseButtonEventArgs e)
@@ -613,6 +689,8 @@ public partial class MainWindow : Window
     void SeekDrag(object sender, MouseEventArgs e)
     {
         if (ProgressTrack.IsMouseCaptured) SeekFromMouse(e);
+        var fraction = Fraction(e, ProgressTrack);
+        Preview(ProgressPreview, fraction, Clock(duration * fraction));
     }
 
     // On ne saute qu'au relâchement : un lecteur n'aime pas recevoir une position à chaque pixel.
@@ -649,7 +727,7 @@ public partial class MainWindow : Window
         catch (COMException ex) { Log(ex); }
     }
 
-    void VolumeFromMouse(MouseEventArgs e) => SetVolume(e.GetPosition(VolumeTrack).X / VolumeTrack.ActualWidth);
+    void VolumeFromMouse(MouseEventArgs e) => SetVolume(Fraction(e, VolumeTrack));
 
     void VolumeDown(object sender, MouseButtonEventArgs e)
     {
@@ -660,6 +738,8 @@ public partial class MainWindow : Window
     void VolumeDrag(object sender, MouseEventArgs e)
     {
         if (VolumeTrack.IsMouseCaptured) VolumeFromMouse(e);
+        var fraction = Fraction(e, VolumeTrack);
+        Preview(VolumePreview, fraction, $"{fraction * 100:0} %");
     }
 
     void VolumeUp(object sender, MouseButtonEventArgs e) => VolumeTrack.ReleaseMouseCapture();
@@ -680,33 +760,16 @@ public partial class MainWindow : Window
         }
     }
 
-    // Un menu plutôt qu'un simple cycle : les sorties virtuelles (Steam, Voicemod...) se comptent vite par dizaine.
-    void OutputMenu(object sender, MouseButtonEventArgs e)
-    {
-        if (outputs.Count < 2) return;
-        var menu = new ContextMenu { PlacementTarget = OutputRow };
-        foreach (var output in outputs)
-        {
-            var item = Item(output.Name);
-            item.IsChecked = output.Name == OutputText.Text;
-            item.Click += (_, _) => ChooseOutput(output);
-            menu.Items.Add(item);
-        }
-        menu.IsOpen = true;
-    }
-
     void ChooseOutput(AudioOutput output)
     {
         try
         {
             AppVolume.SetDefaultOutput(output.Id);
             OutputText.Text = output.Name;
+            Unfold(OutputMenu);
         }
         catch (Exception ex) when (ex is COMException or InvalidCastException) { Log(ex); }
     }
-
-    // Un Header texte transformerait "_" en raccourci clavier et le ferait disparaître du nom.
-    static MenuItem Item(string text) => new() { Header = new TextBlock { Text = text } };
 
     void ClearNotes(object sender, RoutedEventArgs e)
     {

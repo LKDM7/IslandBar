@@ -12,7 +12,7 @@ static class Program
         if (args.Contains("--selftest")) return SelfTest();
         if (args.Contains("--restore-banners"))
         {
-            Settings.Load().RestoreBanners();
+            Settings.Load().SetBanners(show: true);
             return 0;
         }
         return new Application().Run(new MainWindow());
@@ -66,7 +66,11 @@ static class Program
             && DiscordRpc.Link("", "456") == "discord://-/channels/@me/456"
             && DiscordRpc.Link("123", "456&calc") == null
             && DiscordRpc.Link("1/../2", "456") == null
-            && DiscordRpc.Link("123", null) == null;
+            && DiscordRpc.Link("123", null) == null
+            && Math.Abs(MainWindow.BarScale(0, 0) - .35) < 1e-9
+            && Math.Abs(MainWindow.BarScale(.3, 0) - 1) < 1e-9
+            && Math.Abs(MainWindow.BarScale(.45, 0) - .675) < 1e-9
+            && Math.Abs(MainWindow.BarScale(.72, 2) - .675) < 1e-9; // 3e barre : un aller dure .48 s
         return ok ? 0 : 1;
     }
 

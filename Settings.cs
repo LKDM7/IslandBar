@@ -39,10 +39,10 @@ public class Settings
         else key.SetValue("ShowBanner", 0, RegistryValueKind.DWord);
     }
 
-    // Appelé à la désinstallation : seules les applis cochées ont vu leur bannière coupée par l'île.
-    public void RestoreBanners()
+    // Seules les applis cochées passent par l'île : les autres gardent le réglage choisi dans Windows.
+    public void SetBanners(bool show)
     {
         foreach (var (id, app) in Apps)
-            if (app.Show) SetBanner(id, show: true);
+            if (app.Show) SetBanner(id, show);
     }
 }

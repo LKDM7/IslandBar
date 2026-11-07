@@ -1,7 +1,7 @@
 <Window x:Class="IslandBar.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IslandBar" Width="460" Height="470" Top="0"
+        Title="IslandBar" Width="460" Height="700" Top="0"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
         ShowInTaskbar="False" Topmost="True" ShowActivated="False"
         FontFamily="Segoe UI Variable Text, Segoe UI" Foreground="White"
@@ -11,6 +11,25 @@
         <SolidColorBrush x:Key="Dim" Color="#99FFFFFF"/>
         <SolidColorBrush x:Key="Faint" Color="#59FFFFFF"/>
         <SolidColorBrush x:Key="Blurple" Color="#5865F2"/>
+        <BooleanToVisibilityConverter x:Key="WhenTrue"/>
+
+        <Style x:Key="Tick" TargetType="Rectangle">
+            <Setter Property="Width" Value="2"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="RadiusX" Value="1"/>
+            <Setter Property="RadiusY" Value="1"/>
+            <Setter Property="Fill" Value="White"/>
+            <Setter Property="Canvas.Top" Value="3"/>
+        </Style>
+
+        <Style x:Key="Bubble" TargetType="Border">
+            <Setter Property="Background" Value="#2A2A2E"/>
+            <Setter Property="BorderBrush" Value="#26FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0.5"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="6,1,6,2"/>
+            <Setter Property="Canvas.Top" Value="-19"/>
+        </Style>
 
         <Style x:Key="Flat" TargetType="Button">
             <Setter Property="Focusable" Value="False"/>
@@ -34,6 +53,45 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="Row" TargetType="Button" BasedOn="{StaticResource Flat}">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" CornerRadius="9" Padding="10,5">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="B" Property="Background" Value="#22FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="B" Property="Background" Value="#38FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="Menu" TargetType="Border">
+            <Setter Property="Background" Value="#14FFFFFF"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Margin" Value="8,2,8,4"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+        </Style>
+
+        <DataTemplate x:Key="ChoiceRow">
+            <Button Style="{StaticResource Row}" Click="ChoiceClick">
+                <DockPanel>
+                    <Path DockPanel.Dock="Right" Data="M4 12.5l5 5L20 6.5" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Stretch="Uniform" Width="12" VerticalAlignment="Center" Margin="8,0,0,0" Visibility="{Binding On, Converter={StaticResource WhenTrue}}"/>
+                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Button>
+        </DataTemplate>
 
         <Style x:Key="Icon" TargetType="Button" BasedOn="{StaticResource Flat}">
             <Setter Property="Width" Value="38"/>
@@ -77,15 +135,7 @@
 
     <Border x:Name="Pill" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0"
             Width="96" Height="28" CornerRadius="14" Background="Black" Opacity="0"
-            BorderBrush="#26FFFFFF" BorderThickness="0.5" MouseLeftButtonUp="PillClick">
-        <Border.ContextMenu>
-            <ContextMenu Opened="MenuOpened">
-                <MenuItem x:Name="AppsMenu" Header="Notifications"/>
-                <MenuItem x:Name="QuietItem" Header="Ne pas déranger" IsCheckable="True" Click="QuietClick"/>
-                <Separator/>
-                <MenuItem Header="Quitter IslandBar" Click="Quit"/>
-            </ContextMenu>
-        </Border.ContextMenu>
+            BorderBrush="#26FFFFFF" BorderThickness="0.5" MouseLeftButtonUp="PillClick" MouseRightButtonUp="PillRightClick">
         <Grid>
             <!-- Barre minimale -->
             <StackPanel x:Name="Compact" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0,11,0">
@@ -156,6 +206,12 @@
                                 </Rectangle.RenderTransform>
                             </Rectangle>
                         </Grid>
+                        <Canvas x:Name="ProgressPreview" IsHitTestVisible="False" Visibility="{Binding IsMouseOver, ElementName=ProgressTrack, Converter={StaticResource WhenTrue}}">
+                            <Rectangle Style="{StaticResource Tick}"/>
+                            <Border Style="{StaticResource Bubble}">
+                                <TextBlock FontSize="11"/>
+                            </Border>
+                        </Canvas>
                     </Grid>
                     <TextBlock x:Name="TimeEnd" Grid.Column="2" FontSize="11" Foreground="{StaticResource Dim}" TextAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
@@ -178,27 +234,63 @@
                                 </Rectangle.RenderTransform>
                             </Rectangle>
                         </Grid>
+                        <Canvas x:Name="VolumePreview" IsHitTestVisible="False" Visibility="{Binding IsMouseOver, ElementName=VolumeTrack, Converter={StaticResource WhenTrue}}">
+                            <Rectangle Style="{StaticResource Tick}"/>
+                            <Border Style="{StaticResource Bubble}">
+                                <TextBlock FontSize="11"/>
+                            </Border>
+                        </Canvas>
                     </Grid>
                     <TextBlock x:Name="VolumeText" Grid.Column="2" FontSize="11" Foreground="{StaticResource Dim}" TextAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
 
-                <Grid x:Name="OutputRow" Margin="18,7,18,0" Height="18" Background="Transparent" Cursor="Hand" Visibility="Collapsed"
-                      ToolTip="Changer de sortie audio" MouseLeftButtonUp="OutputMenu">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="38"/>
-                        <ColumnDefinition/>
-                    </Grid.ColumnDefinitions>
-                    <Path Fill="{StaticResource Dim}" Data="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H5v-2a7 7 0 0 1 14 0v2h-1a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z"
-                          Stretch="Uniform" Width="14" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="OutputText" Grid.Column="1" FontSize="11.5" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                </Grid>
+                <Button x:Name="OutputRow" Style="{StaticResource Row}" Margin="8,3,8,0" Visibility="Collapsed" Click="OutputClick">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="38"/>
+                            <ColumnDefinition/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Path Fill="{StaticResource Dim}" Data="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H5v-2a7 7 0 0 1 14 0v2h-1a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z"
+                              Stretch="Uniform" Width="14" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="OutputText" Grid.Column="1" FontSize="11.5" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        <Path Grid.Column="2" Data="M6 9l6 6 6-6" Stroke="{StaticResource Dim}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Stretch="Uniform" Width="10" Margin="8,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="OutputChevron"/>
+                            </Path.RenderTransform>
+                        </Path>
+                    </Grid>
+                </Button>
+
+                <Border x:Name="OutputMenu" Style="{StaticResource Menu}">
+                    <ScrollViewer MaxHeight="224" VerticalScrollBarVisibility="Hidden" Focusable="False">
+                        <ItemsControl x:Name="OutputList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                    </ScrollViewer>
+                </Border>
 
                 <Rectangle Height="0.5" Fill="#2EFFFFFF" Margin="18,12,18,0"/>
 
                 <DockPanel Margin="18,9,12,3">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Flat}" Click="GearClick" Width="26" Height="26" ToolTip="Réglages">
+                        <Path Fill="{StaticResource Dim}" Stretch="Uniform" Width="15"
+                              Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                    </Button>
                     <Button DockPanel.Dock="Right" Style="{StaticResource Flat}" Click="ClearNotes" Padding="10,3" Foreground="{StaticResource Dim}" Content="Effacer"/>
                     <TextBlock x:Name="NotesHeader" Text="Notifications" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
                 </DockPanel>
+
+                <Border x:Name="SettingsMenu" Style="{StaticResource Menu}">
+                    <StackPanel>
+                        <ContentControl x:Name="QuietRow" ContentTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                        <TextBlock x:Name="AppsLabel" FontSize="11" Foreground="{StaticResource Faint}" Margin="10,6,10,2"/>
+                        <ScrollViewer MaxHeight="140" VerticalScrollBarVisibility="Hidden" Focusable="False">
+                            <ItemsControl x:Name="AppList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                        </ScrollViewer>
+                        <Rectangle Height="0.5" Fill="#2EFFFFFF" Margin="10,4"/>
+                        <Button Style="{StaticResource Row}" Click="Quit" Content="Quitter IslandBar"/>
+                    </StackPanel>
+                </Border>
 
                 <TextBlock x:Name="Empty" Text="Aucune notification" FontSize="13" Foreground="{StaticResource Faint}" Margin="18,6,18,8" TextWrapping="Wrap"/>
                 <ScrollViewer MaxHeight="184" VerticalScrollBarVisibility="Hidden" Margin="18,0" Focusable="False">

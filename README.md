@@ -10,12 +10,12 @@ Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible t
 
 ## Ce qu'elle fait
 
-- **Musique :** titre, pochette, égaliseur animé, lecture/pause, piste précédente et suivante. La barre de progression est cliquable, si le lecteur l'accepte, et prend la couleur de la pochette comme l'égaliseur. Elle suit tout lecteur qui publie ses contrôles média à Windows, comme un navigateur.
-- **Notifications :** Discord par défaut, et toute autre application cochée dans le menu (WhatsApp, Teams, mails...). Auteur, message et image s'affichent 5 secondes. Le nombre de notifications non lues reste visible sur la barre.
+- **Musique :** titre, pochette, égaliseur animé, lecture/pause, piste précédente et suivante. La barre de progression est cliquable, si le lecteur l'accepte, et prend la couleur de la pochette comme l'égaliseur. Au survol, les barres de lecture et de volume montrent la valeur visée avant le clic. Elle suit tout lecteur qui publie ses contrôles média à Windows, comme un navigateur.
+- **Notifications :** toutes les applications par défaut (Discord, WhatsApp, Teams, mails...). Les réglages permettent de retirer celles qu'on ne veut pas voir. Auteur, message et image s'affichent 5 secondes. Le nombre de notifications non lues reste visible sur la barre.
 - **Accès au salon :** cliquer sur une notification Discord ouvre directement son salon ou sa conversation privée. Pour une autre application, le clic ouvre l'application.
 - **Volume par application :** le réglage agit seulement sur l'application en lecture, pas sur le son général du PC.
 - **Sortie audio :** passe du casque aux enceintes depuis le panneau. Contrairement au volume, ce choix vaut pour tout le PC.
-- **Ne pas déranger :** pendant un jeu, une vidéo ou une présentation en plein écran, ou à la demande depuis le menu, les notifications ne s'affichent plus. Elles sont gardées et reviennent dans le badge à la fin.
+- **Ne pas déranger :** pendant un jeu, une vidéo ou une présentation en plein écran, ou à la demande depuis les réglages, les notifications ne s'affichent plus. Elles sont gardées et reviennent dans le badge à la fin.
 - **Mises à jour :** IslandBar cherche les nouvelles versions dans les Releases et le signale par une notification. Un clic l'installe et la relance.
 - **Discrétion :** sans musique ni notification, la barre est invisible et les clics passent au travers. Elle ne vole jamais le focus, sauf quand tu l'ouvres.
 
@@ -28,12 +28,12 @@ Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible t
 | `Espace` | Lecture / pause |
 | `←` `→` | Piste précédente / suivante |
 | `↑` `↓` | Volume de l'application, par pas de 5 % |
-| `S` | Choisir la sortie audio |
+| `S` | Dérouler la liste des sorties audio |
 | `Entrée` | Ouvrir la notification la plus récente |
 | `Suppr` | Effacer les notifications |
 | `Échap` | Fermer le panneau |
 
-Quand la barre est visible, un clic l'ouvre aussi. Un clic droit ouvre le menu : applications à afficher, ne pas déranger et quitter. Une application apparaît dans ce menu dès sa première notification.
+Quand la barre est visible, un clic l'ouvre aussi. L'engrenage du panneau, ou un clic droit sur la barre, déroule les réglages : ne pas déranger, applications à afficher et quitter. Une application y apparaît dès sa première notification.
 
 ## Installation
 
@@ -91,7 +91,7 @@ Set-ItemProperty $discord -Name ShowBanner -Value 0 -Type DWord
 
 Si IslandBar est fermée, ces notifications n'apparaissent alors plus à l'écran. Elles restent dans le centre de notifications.
 
-Pour les applications cochées dans le menu, IslandBar coupe et rétablit cette bannière elle-même. La désinstallation la rétablit aussi.
+Pour les applications cochées dans les réglages, IslandBar coupe cette bannière tant qu'elle tourne. Elle la rétablit quand on la quitte depuis les réglages ou qu'on la désinstalle.
 
 ## Connexion à Discord
 
@@ -118,6 +118,8 @@ Sans cette autorisation, tout le reste fonctionne : cliquer sur une notification
 - La ligne de volume n'apparaît pas si l'application en lecture n'est pas reconnue, ce qui peut arriver avec Firefox ou certaines applications du Microsoft Store.
 - La barre reste invisible par-dessus les jeux en plein écran exclusif. En fenêtré sans bordure, elle s'affiche.
 - Il n'est pas possible de répondre à un message depuis la barre.
+- La toute première notification d'une application s'affiche aussi dans Windows : IslandBar ne coupe sa bannière qu'à partir de là.
+- Si IslandBar plante ou est arrêtée de force, les bannières Windows restent coupées jusqu'au prochain lancement suivi d'un « Quitter ».
 - Hors Discord, le clic sur une notification ouvre l'application, pas le message précis.
 - Ouvrir soi-même une application du Microsoft Store n'efface pas toujours ses notifications de la barre : `Suppr` les retire.
 - Changer la sortie audio passe par une interface Windows non documentée, qu'une mise à jour de Windows pourrait casser.

@@ -54,6 +54,12 @@ While IslandBar is running, any script can send it a message:
 
 The message appears like a notification, up to 300 characters. The exit code is 0 if the message went through and 1 if IslandBar isn't running. Only your Windows account can write to the bar.
 
+To show a picture instead of the initial, add `--icon` right after `--notify`, followed by a PNG or JPG stored on your PC (not on a network share):
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\IslandBar\IslandBar.exe" --notify --icon "C:\Images\build.png" "Build finished"
+```
+
 ## Install
 
 Download [`IslandBar-Setup.exe`](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe) from the [Releases](https://github.com/LKDM7/IslandBar/releases), then run it. All you need is Windows 11 (x64): .NET is included and no administrator rights are requested.

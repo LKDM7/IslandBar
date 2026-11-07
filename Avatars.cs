@@ -52,8 +52,10 @@ static class Avatars
         var source = XDocument.Parse(payload).Descendants("image").FirstOrDefault()?.Attribute("src")?.Value;
         if (!Uri.TryCreate(source, UriKind.Absolute, out var uri) || !uri.IsFile) return null;
         // L'outil Capture écrit le lecteur échappé (file:///C%3A%5C...) : LocalPath garde alors une barre devant « C: ».
-        var path = uri.LocalPath.TrimStart('/');
-        // Lettre de lecteur exigée : ouvrir un partage réseau enverrait l'identité Windows au serveur distant.
-        return path.Length > 2 && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '\\' or '/' ? Path.GetFullPath(path) : null;
+        return Local(uri.LocalPath.TrimStart('/'));
     }
+
+    // Lettre de lecteur exigée : ouvrir un partage réseau enverrait l'identité Windows au serveur distant.
+    public static string Local(string path) =>
+        path is { Length: > 2 } && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '\\' or '/' ? Path.GetFullPath(path) : null;
 }

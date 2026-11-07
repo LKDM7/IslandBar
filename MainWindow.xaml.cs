@@ -168,9 +168,9 @@ public partial class MainWindow : Window
         new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Poll(), Dispatcher).Start();
         new DispatcherTimer(TimeSpan.FromMinutes(1), DispatcherPriority.Background, (_, _) => FreeMemory(), Dispatcher).Start();
         _ = Safe(CheckUpdates);
-        _ = Safe(() => ScriptNotes.Listen(text =>
+        _ = Safe(() => ScriptNotes.Listen((text, icon) =>
         {
-            Show(new Note("IslandBar", text, DateTime.Now));
+            Show(new Note("IslandBar", text, DateTime.Now) { Avatar = LoadImage(Avatars.Local(icon)) });
             Apply();
         }));
         Sensors.Watch(
@@ -713,10 +713,20 @@ public partial class MainWindow : Window
 
     ImageSource LoadAvatar(uint notificationId)
     {
+        try { return LoadImage(Avatars.PathFor(notificationId)); }
+        catch (Exception ex)
+        {
+            Log(ex); // base de notifications illisible
+            return null;
+        }
+    }
+
+    // Image absente ou abîmée : la pastille garde l'initiale, et l'écoute des scripts continue.
+    ImageSource LoadImage(string path)
+    {
+        if (path == null) return null;
         try
         {
-            var path = Avatars.PathFor(notificationId);
-            if (path == null) return null;
             using var file = File.OpenRead(path);
             return Decode(file);
         }

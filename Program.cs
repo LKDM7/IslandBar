@@ -16,7 +16,11 @@ static class Program
             Settings.Load().SetBanners(show: true);
             return 0;
         }
-        if (args.FirstOrDefault() == "--notify") return ScriptNotes.Send(string.Join(" ", args.Skip(1))); // sans guillemets, le texte arrive en plusieurs morceaux
+        if (args.FirstOrDefault() == "--notify")
+        {
+            var icon = args.Length > 2 && args[1] == "--icon" ? System.IO.Path.GetFullPath(args[2]) : null; // chemin complet : l'île ne tourne pas dans le même dossier
+            return ScriptNotes.Send(string.Join(" ", args.Skip(icon == null ? 1 : 3)), icon); // sans guillemets, le texte arrive en plusieurs morceaux
+        }
         // Sans la carte graphique : 25 Mo de moins, et pas plus de CPU pour une fenêtre aussi petite.
         RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
         return new Application().Run(new MainWindow());
@@ -67,6 +71,12 @@ static class Program
             && Avatars.PathIn("<toast><visual><binding><image src='https://pirate.example/a.png' /></binding></visual></toast>") == null
             && Avatars.PathIn("<toast><visual><binding></binding></visual></toast>") == null
             && Avatars.PathIn(null) == null
+            && Avatars.Local("C:/Temp/a.png") == @"C:\Temp\a.png"
+            && Avatars.Local(@"\\pirate\share\a.png") == null
+            && Avatars.Local(null) == null
+            && ScriptNotes.Read("\0Build fini") == ("Build fini", null)
+            && ScriptNotes.Read(@"C:\a.png" + "\0Build\nfini ") == ("Build fini", @"C:\a.png")
+            && ScriptNotes.Read("ancien format") == ("ancien format", null)
             && AppVolume.Matches("Chrome", "chrome")
             && AppVolume.Matches("Spotify.exe", "Spotify")
             && AppVolume.Matches("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify", "Spotify")

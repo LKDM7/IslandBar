@@ -7,7 +7,8 @@ namespace IslandBar;
 // Ni compte ni réseau : l'appli reçoit le clic et ouvre elle-même la bonne conversation.
 static class ToastClick
 {
-    const int VT_CLSID = 72, ASFW_ANY = -1;
+    const int VT_CLSID = 72;
+    public const int ASFW_ANY = -1;
 
     // Seul ce raccourci porte l'activateur, pas ceux du bureau ni du dossier « Discord Inc ».
     public static readonly string DiscordShortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Discord.lnk");
@@ -15,7 +16,7 @@ static class ToastClick
     [DllImport("shell32", CharSet = CharSet.Unicode, PreserveSig = false)]
     static extern void SHGetPropertyStoreFromParsingName(string path, nint context, int flags, ref Guid iid, out AppVolume.IPropertyStore store);
 
-    [DllImport("user32")] static extern bool AllowSetForegroundWindow(int processId);
+    [DllImport("user32")] public static extern bool AllowSetForegroundWindow(int processId);
 
     [ComImport, Guid("53E31837-6600-4A81-9395-75CFFE746F94"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface INotificationActivationCallback

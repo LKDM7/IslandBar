@@ -66,6 +66,7 @@ public partial class MainWindow : Window
 
     const double ToastSeconds = 5, MaxNotes = 30, VolumeStep = .05, BarFps = 15;
     const double Stiffness = 230, Damping = 23; // amortissement < 1 : le léger rebond façon iOS
+    const double HoldMs = 250, BarEdge = 20, HomeSnap = 60; // BarEdge : du bord de la fenêtre au milieu de la barre
 
     static readonly Geometry PlayGeometry = Geometry.Parse("M7 4.5v15l12.5-7.5z");
     static readonly Geometry PauseGeometry = Geometry.Parse("M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z");
@@ -73,6 +74,7 @@ public partial class MainWindow : Window
     static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "IslandBar.log");
     static readonly string NotificationWal = Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db-wal");
     const int FullCheckEvery = 10;
+    static readonly TimeSpan PlayerTimeout = TimeSpan.FromSeconds(3); // un lecteur figé ne doit pas bloquer les notifications
 
     readonly ObservableCollection<Note> notes = [];
     readonly HashSet<uint> seen = [];
@@ -81,7 +83,7 @@ public partial class MainWindow : Window
     readonly Settings settings = Settings.Load();
     readonly SolidColorBrush accent = new(Colors.White);
     readonly ScaleTransform[] barScales;
-    readonly DispatcherTimer wave;
+    readonly DispatcherTimer wave, hold;
 
     GlobalSystemMediaTransportControlsSessionManager media;
     Session session;
@@ -94,6 +96,9 @@ public partial class MainWindow : Window
     List<AudioOutput> outputs = [];
     TimeSpan duration;
     nint previousWindow;
+    Point grip;
+    object grabbed;
+    bool dragged;
     TimeSpan lastFrame;
     (long, DateTime) notificationStamp;
     List<string> microphoneApps = [], cameraApps = [];
@@ -101,12 +106,18 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        Dispatcher.UnhandledException += (_, e) =>
+        {
+            Log(e.Exception);
+            e.Handled = true; // fermée, l'île laisserait les bannières coupées et les notifications invisibles
+        };
         InitializeComponent();
         // Posé à la main : un pinceau placé dans les ressources est gelé par WPF, et celui-ci s'anime.
         ProgressFill.Fill = accent;
         foreach (System.Windows.Shapes.Shape bar in Bars.Children) bar.Fill = accent;
         barScales = Bars.Children.Cast<UIElement>().Select(bar => (ScaleTransform)(bar.RenderTransform = new ScaleTransform(1, .35))).ToArray();
         wave = new DispatcherTimer(TimeSpan.FromSeconds(1.0 / BarFps), DispatcherPriority.Render, (_, _) => Wave(), Dispatcher) { IsEnabled = false };
+        hold = new DispatcherTimer(TimeSpan.FromMilliseconds(HoldMs), DispatcherPriority.Input, (_, _) => Lift(), Dispatcher) { IsEnabled = false };
         shown = Compact;
         NoteList.ItemsSource = notes;
         MiniArt.Fill = BigArt.Fill = NoArt;
@@ -117,11 +128,17 @@ public partial class MainWindow : Window
 
     Monitor Chosen(List<Monitor> monitors) => monitors.Find(m => m.Device == settings.Screen) ?? monitors.Find(m => m.Primary);
 
+    static double Scale(List<Monitor> monitors) => monitors.Find(m => m.Primary).Width / SystemParameters.PrimaryScreenWidth;
+
     void Center()
     {
         var monitors = Monitors.All();
-        var scale = monitors.Find(m => m.Primary).Width / SystemParameters.PrimaryScreenWidth;
+        var scale = Scale(monitors);
+        var up = false;
         (Left, Top) = Monitors.Place(Chosen(monitors), Width, scale);
+        if (settings.Bar is { } bar) (Left, Top, up) = Monitors.Moved(Chosen(monitors), bar, new(Width, Height), BarEdge, scale);
+        Pill.VerticalAlignment = up ? VerticalAlignment.Bottom : VerticalAlignment.Top;
+        Pill.Margin = new Thickness(0, up ? 0 : 6, 0, up ? 6 : 0);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -132,7 +149,7 @@ public partial class MainWindow : Window
         HwndSource.FromHwnd(hwnd).AddHook(WndProc);
         if (RegisterHotKey(hwnd, 1, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, MapVirtualKeyW(ScanCodeSquare, MAPVK_VSC_TO_VK))) return;
         MessageBox.Show(Strings.HotkeyTaken, "IslandBar");
-        Application.Current.Shutdown();
+        Environment.Exit(1); // pas de fermeture normale : l'île déjà lancée garde les bannières coupées, voir OnClosed
     }
 
     async void OnLoaded(object sender, RoutedEventArgs e)
@@ -212,6 +229,18 @@ public partial class MainWindow : Window
 
     void PillClick(object sender, MouseButtonEventArgs e)
     {
+        hold.Stop();
+        if (Pill.IsMouseCaptured)
+        {
+            var moved = dragged;
+            Pill.ReleaseMouseCapture();
+            if (moved) return;
+            if (grabbed == MiniArt) // clic un peu long, resté sur place : c'est un clic normal
+            {
+                ArtClick(sender, e);
+                return;
+            }
+        }
         if (expanded) return;
         if (toast == null)
         {
@@ -221,6 +250,51 @@ public partial class MainWindow : Window
         OpenNote(toast);
         toast = null;
         Apply();
+    }
+
+    // --- Déplacement : clic maintenu sur la barre, ou sur le fond du panneau ---
+
+    void PillPress(object sender, MouseButtonEventArgs e)
+    {
+        if (expanded && e.OriginalSource != Pill) return; // les boutons et les curseurs gardent leur clic
+        grip = e.GetPosition(this);
+        grabbed = e.OriginalSource;
+        hold.Start();
+    }
+
+    // La souris n'est prise qu'ici : un clic bref doit encore atteindre la pochette.
+    void Lift()
+    {
+        hold.Stop();
+        if (Mouse.LeftButton != MouseButtonState.Pressed || !Pill.CaptureMouse()) return;
+        dragged = false;
+        Pill.Cursor = Cursors.SizeAll;
+    }
+
+    void PillDrag(object sender, MouseEventArgs e)
+    {
+        if (!Pill.IsMouseCaptured) return;
+        var offset = e.GetPosition(this) - grip;
+        if (!dragged && offset.Length < SystemParameters.MinimumHorizontalDragDistance) return; // la main qui tremble ne déplace rien
+        dragged = true;
+        Left += offset.X;
+        Top += offset.Y;
+    }
+
+    void PillDropped(object sender, MouseEventArgs e)
+    {
+        if (e.OriginalSource != Pill) return; // un curseur ou un bouton qui rend la souris remonte aussi jusqu'ici
+        Pill.Cursor = null;
+        if (!dragged) return;
+        var monitors = Monitors.All();
+        var scale = Scale(monitors);
+        var bar = new Point(Left + Width / 2, Pill.VerticalAlignment == VerticalAlignment.Bottom ? Top + Height - BarEdge : Top + BarEdge);
+        var screen = Monitors.Nearest(monitors, bar.X * scale, bar.Y * scale);
+        var home = Monitors.Place(screen, Width, scale);
+        settings.Screen = screen.Device;
+        settings.Bar = (bar - new Point(home.Left + Width / 2, home.Top + BarEdge)).Length < HomeSnap ? null : bar;
+        SaveSettings();
+        Center();
     }
 
     void OnKey(object sender, KeyEventArgs e)
@@ -264,12 +338,15 @@ public partial class MainWindow : Window
     }
 
     // Sans île, Windows doit pouvoir afficher lui-même les notifications, sinon une alerte passerait inaperçue.
-    void Quit(object sender, RoutedEventArgs e)
+    // Ici plutôt que sur Quitter : Alt + F4 et la fermeture de session passent aussi par là.
+    protected override void OnClosed(EventArgs e)
     {
+        base.OnClosed(e);
         try { settings.SetBanners(show: true); }
         catch (Exception ex) { Log(ex); }
-        Application.Current.Shutdown();
     }
+
+    void Quit(object sender, RoutedEventArgs e) => Close();
 
     // Les menus se déroulent dans l'île, qui s'agrandit avec eux ; un seul à la fois.
     void Unfold(FrameworkElement menu)
@@ -291,6 +368,22 @@ public partial class MainWindow : Window
             if (section != sender) section.IsChecked = false;
         UpdateLayout(); // Apply mesure le panneau, et ces lignes sont trop profondes pour l'invalider seules
         Apply();
+    }
+
+    async void ArtClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true; // sinon le même clic ouvrirait aussi le panneau
+        if (session == null) return;
+        var (app, title) = (session.SourceAppUserModelId, TrackTitle.Text);
+        Collapse(restoreFocus: false);
+        try
+        {
+            // Hors du fil de l'interface : parcourir les onglets d'un navigateur prend plusieurs centaines de ms.
+            if (await Task.Run(() => Player.Show(app, title))) return;
+            ToastClick.AllowSetForegroundWindow(ToastClick.ASFW_ANY); // sinon l'appli s'ouvre derrière les autres fenêtres
+            Process.Start(new ProcessStartInfo($@"shell:AppsFolder\{app}") { UseShellExecute = true });
+        }
+        catch (Exception ex) { Log(ex); } // fenêtre fermée entre-temps, ou lecteur introuvable
     }
 
     void ChoiceClick(object sender, RoutedEventArgs e) => ((Choice)((FrameworkElement)sender).DataContext).Pick();
@@ -326,7 +419,7 @@ public partial class MainWindow : Window
         settings.Apps[id] = settings.Apps[id] with { Show = show };
         try
         {
-            Settings.SetBanner(id, !show);
+            if (!settings.Apps[id].OffInWindows) Settings.SetBanner(id, !show);
             settings.Save();
         }
         catch (Exception ex) { Log(ex); }
@@ -350,6 +443,7 @@ public partial class MainWindow : Window
     void ChooseScreen(Monitor monitor)
     {
         settings.Screen = monitor.Device;
+        settings.Bar = null;
         SaveSettings();
         Center();
     }
@@ -364,6 +458,7 @@ public partial class MainWindow : Window
         BadgeText.Text = notes.Sum(n => n.Count).ToString();
         Empty.Visibility = notes.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
         NotesHeader.Text = quiet ? Strings.NotificationsQuiet : Strings.Notifications;
+        NotesHeader.Foreground = (Brush)FindResource(quiet ? "QuietBlue" : "Dim");
         MiniArt.Visibility = MiniTitle.Visibility = Bars.Visibility = playing ? Visibility.Visible : Visibility.Collapsed;
 
         var sensing = microphoneApps.Count + cameraApps.Count > 0;
@@ -462,13 +557,16 @@ public partial class MainWindow : Window
     {
         if (polling) return;
         polling = true;
-        await Safe(PollMusic);
-        await Safe(PollNotifications);
-        if (expanded && !VolumeTrack.IsMouseCaptured) RefreshVolume();
-        if (expanded) RefreshOutput();
-        if (toast != null && DateTime.Now > toastUntil) toast = null;
-        Apply();
-        polling = false;
+        try
+        {
+            await Safe(PollMusic);
+            await Safe(PollNotifications);
+            if (expanded && !VolumeTrack.IsMouseCaptured) RefreshVolume();
+            if (expanded) RefreshOutput();
+            if (toast != null && DateTime.Now > toastUntil) toast = null;
+            Apply();
+        }
+        finally { polling = false; } // sinon une erreur arrêterait la boucle pour de bon
     }
 
     async Task Safe(Func<Task> work)
@@ -482,7 +580,8 @@ public partial class MainWindow : Window
     {
         if (ex.Message == lastError) return;
         lastError = ex.Message;
-        File.AppendAllText(LogPath, $"{DateTime.Now:s} {ex}\n");
+        try { File.AppendAllText(LogPath, $"{DateTime.Now:s} {ex}\n"); }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) { } // un journal bloqué ne doit pas fermer l'île
     }
 
     static bool IsPlaying(Session s) => s.GetPlaybackInfo().PlaybackStatus == PlaybackStatus.Playing;
@@ -494,6 +593,7 @@ public partial class MainWindow : Window
         media ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
         session = media.GetSessions().FirstOrDefault(IsPlaying) ?? media.GetCurrentSession();
         playing = session != null && IsPlaying(session);
+        BigArt.Cursor = session != null ? Cursors.Hand : null;
         PlayIcon.Data = playing ? PauseGeometry : PlayGeometry;
 
         if (session == null)
@@ -507,7 +607,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var track = await session.TryGetMediaPropertiesAsync();
+        var track = await session.TryGetMediaPropertiesAsync().AsTask().WaitAsync(PlayerTimeout);
         var key = $"{session.SourceAppUserModelId}|{track.Title}|{track.Artist}";
         // Certains lecteurs publient la pochette après le titre : on la redemande tant qu'elle manque.
         if (key != trackKey || BigArt.Fill == NoArt)
@@ -572,15 +672,24 @@ public partial class MainWindow : Window
         return Color.FromRgb(Light(best.R), Light(best.G), Light(best.B));
     }
 
-    static async Task<Brush> LoadArt(GlobalSystemMediaTransportControlsSessionMediaProperties track)
+    // En cas d'échec, NoArt plutôt que la pochette du morceau précédent : elle sera redemandée au passage suivant.
+    async Task<Brush> LoadArt(GlobalSystemMediaTransportControlsSessionMediaProperties track)
     {
         if (track.Thumbnail == null) return NoArt;
-        using var thumbnail = await track.Thumbnail.OpenReadAsync();
-        using var source = thumbnail.AsStreamForRead();
-        using var copy = new MemoryStream();
-        await source.CopyToAsync(copy);
-        copy.Position = 0;
-        return new ImageBrush(Decode(copy)) { Stretch = Stretch.UniformToFill };
+        try
+        {
+            using var thumbnail = await track.Thumbnail.OpenReadAsync().AsTask().WaitAsync(PlayerTimeout);
+            using var source = thumbnail.AsStreamForRead();
+            using var copy = new MemoryStream();
+            await source.CopyToAsync(copy);
+            copy.Position = 0;
+            return new ImageBrush(Decode(copy)) { Stretch = Stretch.UniformToFill };
+        }
+        catch (Exception ex)
+        {
+            Log(ex);
+            return NoArt;
+        }
     }
 
     static BitmapImage Decode(Stream stream)
@@ -588,6 +697,7 @@ public partial class MainWindow : Window
         var image = new BitmapImage();
         image.BeginInit();
         image.CacheOption = BitmapCacheOption.OnLoad;
+        image.DecodePixelWidth = 128; // le double de la plus grande pochette affichée : une image 720p prendrait 3,7 Mo
         image.StreamSource = stream;
         image.EndInit();
         image.Freeze();
@@ -662,7 +772,7 @@ public partial class MainWindow : Window
     bool Wanted(string id, string name)
     {
         if (settings.Apps.TryGetValue(id, out var app)) return app.Show;
-        settings.Apps[id] = new(name, true);
+        settings.Apps[id] = new(name, true, Settings.BannerOff(id));
         Settings.SetBanner(id, show: false);
         settings.Save();
         return true;
@@ -701,19 +811,24 @@ public partial class MainWindow : Window
     static string ForegroundProcess()
     {
         GetWindowThreadProcessId(GetForegroundWindow(), out var pid);
-        try
-        {
-            using var process = Process.GetProcessById((int)pid);
-            return process.ProcessName;
-        }
-        catch (ArgumentException) { return ""; } // le processus vient de se fermer
+        return AppVolume.ProcessName(pid);
     }
 
     async Task CheckUpdates()
     {
-        Release release;
-        while ((release = await Updater.Check()) == null) await Task.Delay(TimeSpan.FromHours(6));
+        while (true)
+        {
+            await Safe(async () => Offer(await Updater.Check()));
+            await Task.Delay(TimeSpan.FromHours(6));
+        }
+    }
+
+    // Effacée ou poussée hors de la liste par d'autres notifications, la proposition revient au relevé suivant.
+    void Offer(Release release)
+    {
+        if (release == null || notes.Any(n => n.Update == release)) return;
         Show(new Note(Strings.VersionAvailable(release.Tag.TrimStart('v')), Strings.ClickToInstall, DateTime.Now) { Update = release });
+        Apply();
     }
 
     async void InstallUpdate(Note note)
@@ -878,14 +993,15 @@ public partial class MainWindow : Window
 
     async void OpenNote(Note note)
     {
+        if (note == null) return; // liste vide, ou clic entre deux lignes
         Collapse(restoreFocus: false);
-        if (note?.Update != null)
+        if (note.Update != null)
         {
             InstallUpdate(note);
             return;
         }
-        if (note?.AppId == "") return; // message de l'île : il n'y a rien à ouvrir
-        if (note != null) notes.Remove(note); // certaines applis du Store ne sont pas reconnues au premier plan
+        if (note.AppId == "") return; // message de l'île : il n'y a rien à ouvrir
+        notes.Remove(note); // certaines applis du Store ne sont pas reconnues au premier plan
         if (await Replay(note)) return;
         try { Process.Start(new ProcessStartInfo(LinkFor(note)) { UseShellExecute = true }); }
         catch (Win32Exception ex) { Log(ex); }
@@ -895,7 +1011,7 @@ public partial class MainWindow : Window
     // Une notification déjà fermée par Discord (11 s encore bon, 20 s trop tard) est ignorée sans erreur, d'où le contrôle du premier plan.
     async Task<bool> Replay(Note note)
     {
-        if (note == null || !IsDiscord(note.AppId)) return false;
+        if (!IsDiscord(note.AppId)) return false;
         try
         {
             // Hors du fil de l'interface : si Discord est fermé, Windows le relance et l'appel peut durer.
@@ -909,7 +1025,7 @@ public partial class MainWindow : Window
     // Sans salon connu (Discord non autorisé, ou connexion locale tombée), on ouvre simplement Discord.
     string LinkFor(Note note)
     {
-        if (note != null && !IsDiscord(note.AppId)) return $@"shell:AppsFolder\{note.AppId}";
-        return note != null && channelLinks.TryGetValue(note.Title, out var known) ? known : "discord://-/";
+        if (!IsDiscord(note.AppId)) return $@"shell:AppsFolder\{note.AppId}";
+        return channelLinks.TryGetValue(note.Title, out var known) ? known : "discord://-/";
     }
 }

@@ -16,7 +16,7 @@ static class Program
             Settings.Load().SetBanners(show: true);
             return 0;
         }
-        if (args.Length == 2 && args[0] == "--notify") return ScriptNotes.Send(args[1]);
+        if (args.FirstOrDefault() == "--notify") return ScriptNotes.Send(string.Join(" ", args.Skip(1))); // sans guillemets, le texte arrive en plusieurs morceaux
         // Sans la carte graphique : 25 Mo de moins, et pas plus de CPU pour une fenêtre aussi petite.
         RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
         return new Application().Run(new MainWindow());
@@ -26,6 +26,8 @@ static class Program
     static int SelfTest()
     {
         var t = new DateTime(2026, 1, 1);
+        var main = new Monitor(@"\\.\DISPLAY1", 0, 0, 2560, 1392, true);
+        var side = new Monitor(@"\\.\DISPLAY2", -1920, 156, 1920, 1236, false);
         var ok = Note.From(["Alice (#general, Serveur)", "salut\nça va"], t) is { Title: "Alice (#general, Serveur)", Body: "salut ça va", Initial: "A" }
             && Note.From([], t) is { Title: "Discord", Body: "", Initial: "D" }
             && Note.From(["😀 Bob"], t).Initial == "😀"
@@ -58,7 +60,10 @@ static class Program
             && MainWindow.Clock(TimeSpan.FromSeconds(3725)) == "62:05"
             && Avatars.PathIn(@"<toast><visual><binding><image placement='appLogoOverride' src='C:\Temp/a.png' /></binding></visual></toast>") == @"C:\Temp\a.png"
             && Avatars.PathIn("<toast><visual><binding><image src='file:///C:/Temp/a.png' /></binding></visual></toast>") == @"C:\Temp\a.png"
+            && Avatars.PathIn("<toast><visual><binding><image src='file:///C%3A%5CTemp%5Ca.png' /></binding></visual></toast>") == @"C:\Temp\a.png"
             && Avatars.PathIn(@"<toast><visual><binding><image src='\\pirate\share\a.png' /></binding></visual></toast>") == null
+            && Avatars.PathIn("<toast><visual><binding><image src='file:///%5C%5Cpirate%5Cshare%5Ca.png' /></binding></visual></toast>") == null
+            && Avatars.PathIn("<toast><visual><binding><image src='file://pirate/share/a.png' /></binding></visual></toast>") == null
             && Avatars.PathIn("<toast><visual><binding><image src='https://pirate.example/a.png' /></binding></visual></toast>") == null
             && Avatars.PathIn("<toast><visual><binding></binding></visual></toast>") == null
             && Avatars.PathIn(null) == null
@@ -79,9 +84,32 @@ static class Program
             && !new Note("Alice", "2", t) { AppId = "a" }.SameChat(new Note("Bob", "1", t) { AppId = "a" })
             && !new Note("Alice", "2", t) { AppId = "a" }.SameChat(new Note("Alice", "1", t) { AppId = "b" })
             && !new Note("IslandBar", "2", t).SameChat(new Note("IslandBar", "1", t))
-            && Monitors.Place(new(@"\\.\DISPLAY2", -1920, 156, 1920, false), 460, 1) == (-1190, 156)
-            && Monitors.Place(new(@"\\.\DISPLAY1", 0, 0, 2560, true), 460, 1.5) == (1280 / 1.5 - 230, 0)
-            && new Monitor(@"\\.\DISPLAY2", 0, 0, 1, false).Number == 2
+            && Monitors.Place(side, 460, 1) == (-1190, 156)
+            && Monitors.Place(new(@"\\.\DISPLAY1", 0, 0, 2560, 1392, true), 460, 1.5) == (1280 / 1.5 - 230, 0)
+            && side.Number == 2
+            && Monitors.Moved(main, new(500, 300), new(460, 700), 20, 1) == (270, 280, false)
+            && Monitors.Moved(main, new(500, 1000), new(460, 700), 20, 1) == (270, 320, true)
+            && Monitors.Moved(main, new(-50, -50), new(460, 700), 20, 1) == (0, 0, false)
+            && Monitors.Moved(main, new(9000, 9000), new(460, 700), 20, 1) == (2100, 692, true)
+            && Monitors.Moved(side, new(-1000, 300), new(460, 700), 20, 1) == (-1230, 280, false)
+            && Monitors.Moved(main, new(1000, 1000), new(230, 350), 10, 2) == (885, 346, true)
+            && Monitors.Moved(new(@"\\.\DISPLAY3", 0, 0, 400, 800, false), new(100, 100), new(460, 700), 20, 1) == (0, 80, false) // plus étroit que la fenêtre
+            && Monitors.Nearest([main, side], -100, 500) == side
+            && Monitors.Nearest([main, side], 100, 500) == main
+            && Monitors.Nearest([main, side], -10, 50) == main // le trou au-dessus de l'écran de gauche
+            && JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(new Settings { Bar = new(1.5, 2) })).Bar == new Point(1.5, 2)
+            && JsonSerializer.Deserialize<Settings>("{}").Bar == null
+            && Settings.Parse("{abimé") is { Quiet: false, Bar: null, Apps.Count: 0 }
+            && Settings.Parse("") is { Apps.Count: 0 }
+            && Settings.Parse("null") is { Apps.Count: 0 }
+            && Settings.Parse("{\"Quiet\":true}").Quiet
+            && Settings.Parse("{\"Bar\":\"pas un point\"}").Bar == null
+            && Settings.Parse("{\"Apps\":{\"x\":{\"Name\":\"X\",\"Show\":true}}}").Apps["x"] == new AppChoice("X", true) // fichier d'une ancienne version
+            && !Settings.BannerOff("appli-qui-n-existe-pas")
+            && AppVolume.ProcessName(uint.MaxValue) == ""
+            && AppVolume.ProcessOf("Spotify.exe") == "Spotify"
+            && AppVolume.ProcessOf("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify") == "Spotify"
+            && AppVolume.ProcessOf("Chrome") == "Chrome"
             && Sensors.AppName((uint)Environment.ProcessId) is { Length: > 0 }
             && Sensors.AppName(uint.MaxValue) == null
             && Math.Abs(MainWindow.BarScale(0, 0) - .35) < 1e-9

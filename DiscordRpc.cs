@@ -60,13 +60,14 @@ sealed class DiscordRpc(Action<string, string> onChannelLink, Action<Exception> 
     {
         for (var n = 0; n < 10; n++)
         {
-            var client = new NamedPipeClientStream(".", $"discord-ipc-{n}", PipeDirection.InOut, PipeOptions.Asynchronous);
+            // CurrentUserOnly : le jeton n'est envoyé qu'à un canal ouvert par ce compte Windows, pas à un autre compte du PC.
+            var client = new NamedPipeClientStream(".", $"discord-ipc-{n}", PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
             try
             {
                 await client.ConnectAsync(50);
                 return client;
             }
-            catch (TimeoutException) { client.Dispose(); }
+            catch (Exception ex) when (ex is TimeoutException or UnauthorizedAccessException) { client.Dispose(); }
         }
         return null;
     }

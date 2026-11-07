@@ -33,14 +33,11 @@ Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 [CustomMessages]
 en.AutoStart=Start IslandBar with Windows
 fr.AutoStart=Lancer IslandBar au démarrage de Windows
-en.HideBanners=Hide Discord's Windows banners (avoids duplicate notifications)
-fr.HideBanners=Masquer les bannières Windows de Discord (évite les notifications en double)
 en.LaunchNow=Launch IslandBar
 fr.LaunchNow=Lancer IslandBar
 
 [Tasks]
 Name: "autostart"; Description: "{cm:AutoStart}"
-Name: "nobanner"; Description: "{cm:HideBanners}"
 
 [Files]
 Source: "..\dist\*"; DestDir: "{app}"; Excludes: "*.pdb,*.log"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -50,7 +47,6 @@ Name: "{autoprograms}\IslandBar"; Filename: "{app}\IslandBar.exe"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "IslandBar"; ValueData: """{app}\IslandBar.exe"""; Flags: uninsdeletevalue; Tasks: autostart
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.squirrel.Discord.Discord"; ValueType: dword; ValueName: "ShowBanner"; ValueData: 0; Flags: uninsdeletevalue; Tasks: nobanner
 
 [Run]
 Filename: "{app}\IslandBar.exe"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent

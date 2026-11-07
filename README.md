@@ -14,7 +14,7 @@ A minimal Dynamic Island style bar for Windows 11. It stays invisible until ther
 
 ## What it does
 
-- **Music:** title, cover art, animated equalizer, play/pause, previous and next track. The progress bar is clickable if the player allows it, and takes the color of the cover art, like the equalizer. On hover, the progress and volume bars preview the value before you click. It follows any player that publishes its media controls to Windows, such as a browser.
+- **Music:** title, cover art, animated equalizer, play/pause, previous and next track. The progress bar is clickable if the player allows it, and takes the color of the cover art, like the equalizer. On hover, the progress and volume bars preview the value before you click. It follows any player that publishes its media controls to Windows, such as a browser. Clicking the cover art brings the player to the front and, in a browser, selects the tab that is playing.
 - **Notifications:** every app by default (Discord, WhatsApp, Teams, mail...). The settings let you remove the ones you don't want. Author, message and image stay on screen for 5 seconds. The number of unread notifications stays visible on the bar. Several messages from the same person fit on one line, for example "Alice (3)".
 - **Notifications from your scripts:** `IslandBar.exe --notify "Build finished"` shows your own message. See [Notifications from a script](#notifications-from-a-script).
 - **Microphone and camera:** an orange dot for the microphone and a green dot for the camera appear when an app uses them, as on an iPhone. The app's name shows when you hover over the bar.
@@ -23,6 +23,7 @@ A minimal Dynamic Island style bar for Windows 11. It stays invisible until ther
 - **Audio output:** switch from headphones to speakers from the panel. Unlike the volume, this choice applies to the whole PC.
 - **Do not disturb:** during a full-screen game, video or presentation, or on request from the settings, notifications are no longer shown. They are kept and come back in the badge afterwards.
 - **Screen choice:** with several screens, the settings let you pick the one that shows the bar.
+- **Movable bar:** hold the click on the bar, or on the panel background, then drag it. Its position is kept, and in the lower half of the screen the panel opens upward. To put it back at the top center, drop it near that spot or pick its screen in the settings.
 - **Updates:** IslandBar looks for new versions in the Releases and tells you with a notification. One click installs it and restarts it.
 - **Out of the way:** with nothing to show, the bar is invisible and clicks go through it. It never takes the focus unless you open it.
 - **Languages:** the interface is in French if Windows is in French, in English otherwise.
@@ -59,11 +60,11 @@ Download [`IslandBar-Setup.exe`](https://github.com/LKDM7/IslandBar/releases/lat
 
 The installer isn't signed. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
 
-The setup wizard offers to start IslandBar with Windows and to hide Discord's Windows banners. You can uninstall it from Settings › Apps, which also deletes the Discord token.
+The setup wizard offers to start IslandBar with Windows. You can uninstall it from Settings › Apps, which also deletes the Discord token.
 
 ## Build from source
 
-You need Windows 11 and the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
+You need Windows 11 and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```powershell
 git clone https://github.com/LKDM7/IslandBar.git
@@ -89,27 +90,18 @@ dotnet publish -c Release -r win-x64 --self-contained true -o dist
 
 The result is `installer\Output\IslandBar-Setup.exe`.
 
-### Recommended Windows settings
+### Start IslandBar with Windows
 
-The installer offers these. Without it, the app doesn't set them itself.
-
-Start IslandBar with Windows:
+The installer offers this. Without it:
 
 ```powershell
 $exe = (Resolve-Path .\app\IslandBar.exe).Path
 Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name IslandBar -Value "`"$exe`""
 ```
 
-Remove Discord's Windows banner, to avoid a double notification:
+### Windows banners
 
-```powershell
-$discord = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.squirrel.Discord.Discord'
-Set-ItemProperty $discord -Name ShowBanner -Value 0 -Type DWord
-```
-
-If IslandBar is closed, these notifications then no longer appear on screen. They stay in the notification center.
-
-For the apps ticked in the settings, IslandBar turns this banner off while it runs. It restores it when you quit from the settings or uninstall.
+For the apps ticked in the settings, IslandBar turns the Windows banner off while it runs, to avoid a double notification. It restores it when it closes or is uninstalled. A banner you had already turned off in Windows stays off.
 
 ## Discord connection
 
@@ -126,6 +118,7 @@ Discord restricts this API to the testers of an unapproved application. It stays
 - Only two services are contacted: `discord.com`, to get and renew the connection token, and GitHub, to look for updates every 6 hours and download them. No notification and no app name is sent to them.
 - An update is only installed after a click, and only if its SHA-256 hash matches the one published on GitHub.
 - IslandBar never opens the microphone or the camera: it only asks Windows which apps are using them. It receives neither sound nor image, and records nothing about this use.
+- When you click the cover art, IslandBar reads the browser's tab titles to find the one playing. They are neither saved nor sent anywhere.
 - Notifications stay in memory and disappear when the app closes. Only those from ticked apps are shown.
 - The list of apps seen and your choices are saved in `%APPDATA%\IslandBar\settings.json`.
 - The token is encrypted with your Windows account in `%APPDATA%\IslandBar\discord.token`.
@@ -143,8 +136,10 @@ Discord restricts this API to the testers of an unapproved application. It stays
 - Replaying the click relies on an internal Discord mechanism that a Discord update could change. The click would then simply open Discord.
 - Opening a Microsoft Store app yourself doesn't always clear its notifications from the bar: `Delete` removes them.
 - Changing the audio output relies on an undocumented Windows interface that a Windows update could break.
+- Windows doesn't give the track's address: in an app such as Spotify, clicking the cover art brings it to the front without opening the track's page. If the tab title doesn't contain the track title, only the browser comes to the front.
 - Software that listens to the microphone in the background, such as a clip recorder, keeps the dot on and therefore the bar visible.
 - A microphone plugged in while the bar is running can take up to a minute to be followed.
+- On keyboards where `AltGr` + the key to the left of `1` types a character, such as `\` on a Spanish keyboard, the island's shortcut catches that combination.
 - The camera dot hasn't been tried with a real webcam yet.
 - Tested on a single PC, running Windows 11 (build 26200).
 

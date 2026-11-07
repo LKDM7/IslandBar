@@ -17,7 +17,7 @@ static class ScriptNotes
             using var pipe = new NamedPipeClientStream(".", Pipe, PipeDirection.Out, PipeOptions.CurrentUserOnly);
             pipe.Connect(1000);
             using var writer = new StreamWriter(pipe);
-            writer.Write(text);
+            writer.Write(text.Length > MaxLength ? text[..MaxLength] : text); // l'île ne lit pas plus loin : le reste ferait échouer l'envoi
             return 0;
         }
         catch (Exception ex) when (ex is TimeoutException or IOException or UnauthorizedAccessException) { return 1; } // île non lancée

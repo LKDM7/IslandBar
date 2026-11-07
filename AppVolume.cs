@@ -14,6 +14,7 @@ static class AppVolume
     static IMMDeviceEnumerator captureEnumerator;
     static SessionListener listener;
     static List<IAudioSessionManager2> microphones = [];
+    static List<string> microphoneIds = [];
     static List<IAudioSessionControl2> captures = [];
     static readonly ConcurrentQueue<IAudioSessionControl2> created = new();
 
@@ -37,12 +38,14 @@ static class AppVolume
     }
 
     // sourceApp vaut par exemple "Chrome", "Spotify.exe" ou "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify".
-    public static bool Matches(string sourceApp, string processName)
+    public static string ProcessOf(string sourceApp)
     {
         var app = sourceApp.Split('!')[^1];
-        if (app.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) app = app[..^4];
-        return app.Equals(processName, StringComparison.OrdinalIgnoreCase);
+        return app.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? app[..^4] : app;
     }
+
+    public static bool Matches(string sourceApp, string processName) =>
+        ProcessOf(sourceApp).Equals(processName, StringComparison.OrdinalIgnoreCase);
 
     public static List<AudioOutput> Outputs()
     {
@@ -122,7 +125,12 @@ static class AppVolume
             captureEnumerator ??= (IMMDeviceEnumerator)new MMDeviceEnumerator();
             captureEnumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE, out var devices);
             devices.GetCount(out var count);
-            if (count != microphones.Count) OpenMicrophones(devices, count);
+            var ids = Ids(devices, count); // pas le nombre : un micro remplacé par un autre le laisse identique
+            if (!ids.SequenceEqual(microphoneIds))
+            {
+                microphoneIds = ids;
+                OpenMicrophones(devices, count);
+            }
             Marshal.ReleaseComObject(devices);
             while (created.TryDequeue(out var session)) Follow(session);
             foreach (var session in captures.ToList())
@@ -133,8 +141,21 @@ static class AppVolume
                 else if (ProcessName(pid) == "") Unfollow(session); // notre référence empêche Windows d'expirer la session
             }
         }
-        catch (COMException) { (microphones, captures) = ([], []); } // micro débranché : on rouvre tout au prochain passage
+        catch (COMException) { (microphones, microphoneIds, captures) = ([], [], []); } // micro débranché : on rouvre tout au prochain passage
         return pids;
+    }
+
+    static List<string> Ids(IMMDeviceCollection devices, int count)
+    {
+        var ids = new List<string>();
+        for (var d = 0; d < count; d++)
+        {
+            devices.Item(d, out var device);
+            device.GetId(out var id);
+            Marshal.ReleaseComObject(device);
+            ids.Add(id);
+        }
+        return ids;
     }
 
     static void OpenMicrophones(IMMDeviceCollection devices, int count)
@@ -198,14 +219,14 @@ static class AppVolume
         public int OnGroupingParamChanged(nint group, nint context) => 0;
     }
 
-    static string ProcessName(uint pid)
+    public static string ProcessName(uint pid)
     {
         try
         {
             using var process = Process.GetProcessById((int)pid);
             return process.ProcessName;
         }
-        catch (ArgumentException) { return ""; } // le processus vient de se fermer
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return ""; } // le processus vient de se fermer
     }
 
     [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]

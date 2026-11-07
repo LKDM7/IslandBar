@@ -12,6 +12,7 @@
         <SolidColorBrush x:Key="Dim" Color="#99FFFFFF"/>
         <SolidColorBrush x:Key="Faint" Color="#59FFFFFF"/>
         <SolidColorBrush x:Key="Blurple" Color="#5865F2"/>
+        <SolidColorBrush x:Key="QuietBlue" Color="#A5C8FF"/>
         <BooleanToVisibilityConverter x:Key="WhenTrue"/>
 
         <Style x:Key="Tick" TargetType="Rectangle">
@@ -196,11 +197,12 @@
     <Border x:Name="Pill" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0"
             Width="96" Height="28" CornerRadius="14" Background="Black" Opacity="0"
             BorderBrush="#26FFFFFF" BorderThickness="0.5" MouseLeftButtonUp="PillClick" MouseRightButtonUp="PillRightClick"
+            PreviewMouseLeftButtonDown="PillPress" MouseMove="PillDrag" LostMouseCapture="PillDropped"
             MouseEnter="PillHover" MouseLeave="PillHover">
         <Grid>
             <!-- Barre minimale -->
             <StackPanel x:Name="Compact" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0,11,0">
-                <Rectangle x:Name="MiniArt" Width="22" Height="22" RadiusX="6" RadiusY="6"/>
+                <Rectangle x:Name="MiniArt" Width="22" Height="22" RadiusX="6" RadiusY="6" Cursor="Hand" MouseLeftButtonUp="ArtClick"/>
                 <TextBlock x:Name="MiniTitle" MaxWidth="180" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="8,0,11,0"/>
                 <StackPanel x:Name="Bars" Orientation="Horizontal" VerticalAlignment="Center">
                     <Rectangle Style="{StaticResource Bar}"/>
@@ -210,7 +212,7 @@
                 </StackPanel>
                 <Ellipse x:Name="MicDot" Width="7" Height="7" Fill="#FF9F0A" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"/>
                 <Ellipse x:Name="CameraDot" Width="7" Height="7" Fill="#30D158" Margin="6,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"/>
-                <TextBlock x:Name="SensorText" MaxWidth="200" FontSize="11.5" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="7,0,0,0" Visibility="Collapsed"/>
+                <TextBlock x:Name="SensorText" MaxWidth="140" FontSize="11.5" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="7,0,0,0" Visibility="Collapsed"/>
                 <Border x:Name="Badge" Background="{StaticResource Blurple}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0" Margin="8,0,0,0" Visibility="Collapsed">
                     <TextBlock x:Name="BadgeText" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
@@ -235,7 +237,7 @@
                         <ColumnDefinition/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Rectangle x:Name="BigArt" Width="64" Height="64" RadiusX="13" RadiusY="13"/>
+                    <Rectangle x:Name="BigArt" Width="64" Height="64" RadiusX="13" RadiusY="13" MouseLeftButtonUp="ArtClick"/>
                     <StackPanel Grid.Column="1" Margin="13,0,8,0" VerticalAlignment="Center">
                         <TextBlock x:Name="TrackTitle" Text="{x:Static local:Strings.NothingPlaying}" FontSize="15.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="TrackArtist" FontSize="13" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
@@ -317,7 +319,7 @@
                         </Grid.ColumnDefinitions>
                         <Path Fill="{StaticResource Dim}" Data="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H5v-2a7 7 0 0 1 14 0v2h-1a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z"
                               Stretch="Uniform" Width="14" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="OutputText" Grid.Column="1" FontSize="11.5" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="OutputText" Grid.Column="1" FontSize="11.5" Foreground="#A8E6B4" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                         <Path Grid.Column="2" Data="M6 9l6 6 6-6" Stroke="{StaticResource Dim}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                               Stretch="Uniform" Width="10" Margin="8,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
                             <Path.RenderTransform>

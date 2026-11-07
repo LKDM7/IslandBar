@@ -1,70 +1,70 @@
-<img src="assets/logo/logo-256.png" alt="IslandBar logo" width="96">
+<img src="assets/logo/logo-256.png" alt="Logo d'IslandBar" width="96">
 
 # IslandBar
 
-**English** | [Français](README.fr.md)
+[English](README.en.md) | **Français**
 
-A minimal Dynamic Island style bar for Windows 11. It stays invisible until there is something to show, then appears at the top of the screen with your music, your notifications and the apps using your microphone or camera.
+Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible tant qu'il n'y a rien à montrer, puis apparaît en haut de l'écran pour afficher ta musique, tes notifications et les applications qui utilisent ton micro ou ta caméra.
 
-**[⬇ Download IslandBar-Setup.exe](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe)**
+**[⬇ Télécharger IslandBar-Setup.exe](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe)**
 
-<img src="assets/demo/demo-en.gif" alt="Demo: the bar shows a track, a Discord notification, the full panel, the settings, then the microphone dot" width="420">
+<img src="assets/demo/demo-fr.gif" alt="Démonstration : la barre affiche une musique, une notification Discord, le panneau complet, les réglages puis le point du micro" width="420">
 
-> Designed and coded with Anthropic's **Claude Opus 5.5**, in Claude Code. Logo drawn with Codex.
+> Application conçue et codée avec **Claude Opus 5.5** d'Anthropic, dans Claude Code. Logo dessiné avec Codex.
 
-## What it does
+## Ce qu'elle fait
 
-- **Music:** title, cover art, animated equalizer, play/pause, previous and next track. The progress bar is clickable if the player allows it, and takes the color of the cover art, like the equalizer. On hover, the progress and volume bars preview the value before you click. It follows any player that publishes its media controls to Windows, such as a browser. Clicking the cover art brings the player to the front and, in a browser, selects the tab that is playing.
-- **Notifications:** every app by default (Discord, WhatsApp, Teams, mail...). The settings let you remove the ones you don't want. Author, message and image stay on screen for 5 seconds. The number of unread notifications stays visible on the bar. Several messages from the same person fit on one line, for example "Alice (3)".
-- **Notifications from your scripts:** `IslandBar.exe --notify "Build finished"` shows your own message. See [Notifications from a script](#notifications-from-a-script).
-- **Microphone and camera:** an orange dot for the microphone and a green dot for the camera appear when an app uses them, as on an iPhone. The app's name shows when you hover over the bar.
-- **Jump to the channel:** clicking a Discord notification opens its channel or private conversation. For any other app, the click opens the app.
-- **Per-app volume:** the slider only affects the app that is playing, not the PC's overall sound.
-- **Audio output:** switch from headphones to speakers from the panel. Unlike the volume, this choice applies to the whole PC.
-- **Do not disturb:** during a full-screen game, video or presentation, or on request from the settings, notifications are no longer shown. They are kept and come back in the badge afterwards.
-- **Screen choice:** with several screens, the settings let you pick the one that shows the bar.
-- **Movable bar:** hold the click on the bar, or on the panel background, then drag it. Its position is kept, and in the lower half of the screen the panel opens upward. To put it back at the top center, drop it near that spot or pick its screen in the settings.
-- **Updates:** IslandBar looks for new versions in the Releases and tells you with a notification. One click installs it and restarts it.
-- **Out of the way:** with nothing to show, the bar is invisible and clicks go through it. It never takes the focus unless you open it.
-- **Languages:** the interface is in French if Windows is in French, in English otherwise.
+- **Musique :** titre, pochette, égaliseur animé, lecture/pause, piste précédente et suivante. La barre de progression est cliquable, si le lecteur l'accepte, et prend la couleur de la pochette comme l'égaliseur. Au survol, les barres de lecture et de volume montrent la valeur visée avant le clic. Elle suit tout lecteur qui publie ses contrôles média à Windows, comme un navigateur. Un clic sur la pochette ramène le lecteur au premier plan et, dans un navigateur, sélectionne l'onglet qui joue.
+- **Notifications :** toutes les applications par défaut (Discord, WhatsApp, Teams, mails...). Les réglages permettent de retirer celles qu'on ne veut pas voir. Auteur, message et image s'affichent 5 secondes. Le nombre de notifications non lues reste visible sur la barre. Plusieurs messages de la même personne tiennent sur une seule ligne, par exemple « Alice (3) ».
+- **Notifications depuis tes scripts :** `IslandBar.exe --notify "Build terminé"` affiche ton propre message. Voir [Notifications depuis un script](#notifications-depuis-un-script).
+- **Micro et caméra :** un point orange pour le micro et un point vert pour la caméra s'affichent quand une application les utilise, comme sur iPhone. Son nom apparaît au survol de la barre.
+- **Accès au salon :** cliquer sur une notification Discord ouvre directement son salon ou sa conversation privée. Pour une autre application, le clic ouvre l'application.
+- **Volume par application :** le réglage agit seulement sur l'application en lecture, pas sur le son général du PC.
+- **Sortie audio :** passe du casque aux enceintes depuis le panneau. Contrairement au volume, ce choix vaut pour tout le PC.
+- **Ne pas déranger :** pendant un jeu, une vidéo ou une présentation en plein écran, ou à la demande depuis les réglages, les notifications ne s'affichent plus. Elles sont gardées et reviennent dans le badge à la fin.
+- **Choix de l'écran :** avec plusieurs écrans, les réglages permettent de choisir celui où s'affiche la barre.
+- **Barre déplaçable :** maintiens le clic sur la barre, ou sur le fond du panneau, puis fais-la glisser. Sa place est gardée, et dans la moitié basse de l'écran le panneau s'ouvre vers le haut. Pour la remettre en haut au centre, repose-la près de cet endroit ou choisis son écran dans les réglages.
+- **Mises à jour :** IslandBar cherche les nouvelles versions dans les Releases et le signale par une notification. Un clic l'installe et la relance.
+- **Discrétion :** sans rien à afficher, la barre est invisible et les clics passent au travers. Elle ne vole jamais le focus, sauf quand tu l'ouvres.
+- **Langues :** l'interface est en français si Windows est en français, en anglais sinon.
 
-## Shortcuts
+## Raccourcis
 
-`Ctrl + Alt + ²` opens or closes the panel. The key is the one to the left of `1`, whatever your keyboard layout (`` ` `` on a US keyboard).
+`Ctrl + Alt + ²` ouvre ou ferme le panneau. La touche est celle à gauche de `1`, quelle que soit la disposition du clavier.
 
-| Key | Action |
+| Touche | Action |
 |---|---|
-| `Space` | Play / pause |
-| `←` `→` | Previous / next track |
-| `↑` `↓` | App volume, in 5% steps |
-| `S` | Open the list of audio outputs |
-| `Enter` | Open the latest notification |
-| `Delete` | Clear notifications |
-| `Esc` | Close the panel |
+| `Espace` | Lecture / pause |
+| `←` `→` | Piste précédente / suivante |
+| `↑` `↓` | Volume de l'application, par pas de 5 % |
+| `S` | Dérouler la liste des sorties audio |
+| `Entrée` | Ouvrir la notification la plus récente |
+| `Suppr` | Effacer les notifications |
+| `Échap` | Fermer le panneau |
 
-When the bar is visible, a click opens it too. The gear in the panel, or a right click on the bar, opens the settings: do not disturb, screen, apps to show and quit. An app appears there after its first notification. All these choices are saved.
+Quand la barre est visible, un clic l'ouvre aussi. L'engrenage du panneau, ou un clic droit sur la barre, déroule les réglages : ne pas déranger, écran, applications à afficher et quitter. Une application y apparaît dès sa première notification. Tous ces choix restent enregistrés.
 
-## Notifications from a script
+## Notifications depuis un script
 
-While IslandBar is running, any script can send it a message:
+Tant qu'IslandBar tourne, n'importe quel script peut lui envoyer un message :
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\IslandBar\IslandBar.exe" --notify "Build finished"
+& "$env:LOCALAPPDATA\Programs\IslandBar\IslandBar.exe" --notify "Build terminé"
 ```
 
-The message appears like a notification, up to 300 characters. The exit code is 0 if the message went through and 1 if IslandBar isn't running. Only your Windows account can write to the bar.
+Le message s'affiche comme une notification, dans la limite de 300 caractères. Le code de sortie vaut 0 si le message est passé, 1 si IslandBar n'est pas lancée. Seul ton compte Windows peut écrire à la barre.
 
-## Install
+## Installation
 
-Download [`IslandBar-Setup.exe`](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe) from the [Releases](https://github.com/LKDM7/IslandBar/releases), then run it. All you need is Windows 11 (x64): .NET is included and no administrator rights are requested.
+Télécharge [`IslandBar-Setup.exe`](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe) depuis les [Releases](https://github.com/LKDM7/IslandBar/releases), puis lance-le. Il faut seulement Windows 11 (x64) : .NET est inclus et aucun droit administrateur n'est demandé.
 
-The installer isn't signed. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
+L'installateur n'est pas signé. Si Windows SmartScreen s'affiche, clique sur **Informations complémentaires**, puis sur **Exécuter quand même**.
 
-The setup wizard offers to start IslandBar with Windows. You can uninstall it from Settings › Apps, which also deletes the Discord token.
+L'assistant propose de lancer IslandBar au démarrage de Windows. La désinstallation se fait depuis Paramètres › Applications et efface aussi le jeton Discord.
 
-## Build from source
+## Compiler depuis les sources
 
-You need Windows 11 and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+Il faut Windows 11 et le [SDK .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```powershell
 git clone https://github.com/LKDM7/IslandBar.git
@@ -73,76 +73,76 @@ dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile
 .\app\IslandBar.exe
 ```
 
-To check the internal logic (0 = OK):
+Pour vérifier la logique interne (0 = OK) :
 
 ```powershell
 .\app\IslandBar.exe --selftest; $LASTEXITCODE
 ```
 
-### Build the installer
+### Créer l'installateur
 
-You need [Inno Setup 6](https://jrsoftware.org/isinfo.php) on top of the SDK.
+Il faut [Inno Setup 6](https://jrsoftware.org/isinfo.php) en plus du SDK.
 
 ```powershell
 dotnet publish -c Release -r win-x64 --self-contained true -o dist
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\IslandBar.iss
 ```
 
-The result is `installer\Output\IslandBar-Setup.exe`.
+Le résultat est `installer\Output\IslandBar-Setup.exe`.
 
-### Start IslandBar with Windows
+### Lancer IslandBar au démarrage de Windows
 
-The installer offers this. Without it:
+L'installateur le propose. Sans lui :
 
 ```powershell
 $exe = (Resolve-Path .\app\IslandBar.exe).Path
 Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name IslandBar -Value "`"$exe`""
 ```
 
-### Windows banners
+### Bannières Windows
 
-For the apps ticked in the settings, IslandBar turns the Windows banner off while it runs, to avoid a double notification. It restores it when it closes or is uninstalled. A banner you had already turned off in Windows stays off.
+Pour les applications cochées dans les réglages, IslandBar coupe la bannière Windows tant qu'elle tourne, pour éviter une double notification. Elle la rétablit quand elle se ferme ou qu'on la désinstalle. Une bannière que tu avais déjà coupée dans Windows reste coupée.
 
-## Discord connection
+## Connexion à Discord
 
-No connection is needed to open the right channel from a recent notification. A click replays the Windows click on the notification: Discord opens the channel itself, with no account to connect and nothing to configure. Discord closes its notification after a few seconds (still valid at 11 s, no longer at 20 s when tested). After that, the click simply opens Discord.
+Aucune connexion n'est nécessaire pour ouvrir le bon salon depuis une notification récente. Un clic rejoue le clic Windows sur la notification : Discord ouvre lui-même le salon, sans compte à connecter ni réglage. Discord ferme sa notification au bout de quelques secondes (encore valable à 11 s, plus à 20 s lors du test). Passé ce délai, le clic ouvre simplement Discord.
 
-To find the channel of an older notification, IslandBar can also use Discord's local API, because Windows notifications don't contain the channel ID. On first launch, Discord then asks for an authorization to accept once.
+Pour retrouver le salon d'une notification plus ancienne, IslandBar peut aussi utiliser l'API locale de Discord, car les notifications Windows ne contiennent pas l'identifiant du salon. Au premier lancement, Discord demande alors une autorisation à accepter une seule fois.
 
-The connection goes through the Discord application set by `ClientId` in `DiscordRpc.cs`, in **Public Client** mode, with the redirect `http://127.0.0.1`. No secret is needed.
+La connexion passe par l'application Discord définie par `ClientId` dans `DiscordRpc.cs`, en mode **Public Client**, avec la redirection `http://127.0.0.1`. Aucun secret n'est nécessaire.
 
-Discord restricts this API to the testers of an unapproved application. It stays optional. To use it on another account, you must either be added as a tester or create your own application and replace `ClientId`.
+Discord réserve cette API aux testeurs d'une application non approuvée. Elle reste facultative. Pour en profiter sur un autre compte, il faut soit être ajouté comme testeur, soit créer sa propre application et remplacer `ClientId`.
 
-## Privacy
+## Confidentialité
 
-- Only two services are contacted: `discord.com`, to get and renew the connection token, and GitHub, to look for updates every 6 hours and download them. No notification and no app name is sent to them.
-- An update is only installed after a click, and only if its SHA-256 hash matches the one published on GitHub.
-- IslandBar never opens the microphone or the camera: it only asks Windows which apps are using them. It receives neither sound nor image, and records nothing about this use.
-- When you click the cover art, IslandBar reads the browser's tab titles to find the one playing. They are neither saved nor sent anywhere.
-- Notifications stay in memory and disappear when the app closes. Only those from ticked apps are shown.
-- The list of apps seen and your choices are saved in `%APPDATA%\IslandBar\settings.json`.
-- The token is encrypted with your Windows account in `%APPDATA%\IslandBar\discord.token`.
-- The Windows notification database is only read to get profile pictures and the tag used to replay the click. Only local files are opened.
+- Seuls deux services sont contactés : `discord.com`, pour obtenir et renouveler le jeton de connexion, et GitHub, pour chercher les mises à jour toutes les 6 heures et les télécharger. Aucune notification ni aucun nom d'application ne leur est envoyé.
+- Une mise à jour n'est installée qu'après un clic, et seulement si son empreinte SHA-256 correspond à celle publiée sur GitHub.
+- IslandBar n'ouvre jamais le micro ni la caméra : elle demande seulement à Windows quelles applications les utilisent. Elle ne reçoit ni son ni image, et n'enregistre rien de cet usage.
+- Au clic sur la pochette, IslandBar lit les titres des onglets du navigateur pour trouver celui qui joue. Ils ne sont ni enregistrés ni envoyés.
+- Les notifications restent en mémoire et disparaissent à la fermeture de l'application. Seules celles des applications cochées s'affichent.
+- La liste des applications vues et tes choix sont enregistrés dans `%APPDATA%\IslandBar\settings.json`.
+- Le jeton est chiffré avec le compte Windows dans `%APPDATA%\IslandBar\discord.token`.
+- La base de notifications de Windows est lue uniquement pour récupérer les photos de profil et l'étiquette qui permet de rejouer le clic. Seuls les fichiers locaux sont ouverts.
 
-## Known limits
+## Limites connues
 
-- Chrome has a single volume for all its tabs, so the slider affects them all.
-- The volume row doesn't appear if the playing app isn't recognized, which can happen with Firefox or some Microsoft Store apps.
-- The bar stays invisible over exclusive full-screen games. In borderless windowed mode, it shows.
-- You can't reply to a message from the bar.
-- An app's very first notification also shows in Windows: IslandBar only turns its banner off from then on.
-- If IslandBar crashes or is force-stopped, Windows banners stay off until the next launch followed by a "Quit".
-- Outside Discord, clicking a notification opens the app, not the exact message.
-- Replaying the click relies on an internal Discord mechanism that a Discord update could change. The click would then simply open Discord.
-- Opening a Microsoft Store app yourself doesn't always clear its notifications from the bar: `Delete` removes them.
-- Changing the audio output relies on an undocumented Windows interface that a Windows update could break.
-- Windows doesn't give the track's address: in an app such as Spotify, clicking the cover art brings it to the front without opening the track's page. If the tab title doesn't contain the track title, only the browser comes to the front.
-- Software that listens to the microphone in the background, such as a clip recorder, keeps the dot on and therefore the bar visible.
-- A microphone plugged in while the bar is running can take up to a minute to be followed.
-- On keyboards where `AltGr` + the key to the left of `1` types a character, such as `\` on a Spanish keyboard, the island's shortcut catches that combination.
-- The camera dot hasn't been tried with a real webcam yet.
-- Tested on a single PC, running Windows 11 (build 26200).
+- Chrome n'a qu'un volume pour tous ses onglets, donc le réglage les touche tous.
+- La ligne de volume n'apparaît pas si l'application en lecture n'est pas reconnue, ce qui peut arriver avec Firefox ou certaines applications du Microsoft Store.
+- La barre reste invisible par-dessus les jeux en plein écran exclusif. En fenêtré sans bordure, elle s'affiche.
+- Il n'est pas possible de répondre à un message depuis la barre.
+- La toute première notification d'une application s'affiche aussi dans Windows : IslandBar ne coupe sa bannière qu'à partir de là.
+- Si IslandBar plante ou est arrêtée de force, les bannières Windows restent coupées jusqu'au prochain lancement suivi d'un « Quitter ».
+- Hors Discord, le clic sur une notification ouvre l'application, pas le message précis.
+- Rejouer le clic passe par un mécanisme interne de Discord, qu'une mise à jour de Discord pourrait changer. Le clic ouvrirait alors simplement Discord.
+- Ouvrir soi-même une application du Microsoft Store n'efface pas toujours ses notifications de la barre : `Suppr` les retire.
+- Changer la sortie audio passe par une interface Windows non documentée, qu'une mise à jour de Windows pourrait casser.
+- Windows ne donne pas l'adresse du morceau : dans une application comme Spotify, le clic sur la pochette la ramène au premier plan sans ouvrir la fiche du morceau. Si le titre de l'onglet ne contient pas celui du morceau, seul le navigateur passe au premier plan.
+- Un logiciel qui écoute le micro en arrière-plan, comme un enregistreur de clips, garde le point allumé et donc la barre visible.
+- Un micro branché pendant que la barre tourne peut mettre jusqu'à une minute à être suivi.
+- Sur les claviers où `AltGr` + la touche à gauche de `1` écrit un caractère, comme `\` sur un clavier espagnol, le raccourci de l'île capte cette combinaison.
+- Le point caméra n'a pas encore été essayé avec une vraie webcam.
+- Testée uniquement sur un PC sous Windows 11 (build 26200).
 
-## License
+## Licence
 
 [MIT](LICENSE).

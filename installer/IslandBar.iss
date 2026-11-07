@@ -20,6 +20,7 @@ OutputBaseFilename=IslandBar-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\logo\IslandBar.ico
 UninstallDisplayIcon={app}\IslandBar.exe
 CloseApplications=force
 RestartApplications=no

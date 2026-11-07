@@ -1,0 +1,5 @@
+IslandBar — pilule sonore en réserve ; orange #F05424 et noir #111111, sans effets ni texte.
+logo.svg (1024) : tuile de rayon 224 ; pilule x=112…912, y=336…688, rayon 176, centre (512,512) ; réserves de largeur 56, x=300/392/484/576/668, hauteurs 72/144/216/144/72, centrées à y=512, rayon 28.
+logo-32.svg : tuile de rayon 7 ; pilule x=3…29, y=10…22, rayon 6 ; réserves rectangulaires de largeur 2, x=9/12/15/18/21, hauteurs 4/6/8/6/4, centrées à y=16.
+logo-small.svg : tuile de rayon 3,5 ; pilule x=2…14, y=5…11, rayon 3 ; trois réserves rectangulaires sans arrondi (x,y,largeur,hauteur) : (5,7,1,2), (7,6,2,4), (10,7,1,2), centrées ensemble sur (8,8).
+PNG avec anticrénelage suréchantillonné, couverture symétrisée et coins transparents : 16 depuis logo-small.svg, 32 depuis logo-32.svg, 48/64/256/1024 depuis logo.svg ; sans métadonnées textuelles.

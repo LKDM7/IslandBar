@@ -3,7 +3,7 @@
 ;   ISCC.exe installer\IslandBar.iss
 ; La version autonome embarque .NET : rien d'autre à installer sur le PC cible.
 
-#define Version "1.0.0"
+#define Version GetVersionNumbersString("..\dist\IslandBar.dll")
 
 [Setup]
 AppId={{E1B1D9A2-6C1F-4E56-9C3B-7F5E1F3A2D10}
@@ -44,8 +44,11 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Notifications\Set
 
 [Run]
 Filename: "{app}\IslandBar.exe"; Description: "Lancer IslandBar"; Flags: nowait postinstall skipifsilent
+; Une mise à jour lancée par l'île est silencieuse : c'est elle qui doit relancer l'île.
+Filename: "{app}\IslandBar.exe"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
+Filename: "{app}\IslandBar.exe"; Parameters: "--restore-banners"; Flags: runhidden waituntilterminated; RunOnceId: "RestoreBanners"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM IslandBar.exe"; Flags: runhidden; RunOnceId: "StopIslandBar"
 
 ; Le jeton Discord ne doit pas survivre à la désinstallation.

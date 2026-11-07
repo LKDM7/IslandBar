@@ -70,7 +70,7 @@
                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13.5" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Text="{Binding Body}" Foreground="{StaticResource Dim}" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
-                <TextBlock Grid.Column="2" Text="{Binding When, StringFormat={}{0:HH:mm}}" Foreground="{StaticResource Faint}" FontSize="11.5" VerticalAlignment="Top" Margin="0,3,0,0"/>
+                <TextBlock Grid.Column="2" Text="{Binding Stamp}" MaxWidth="120" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Faint}" FontSize="11.5" VerticalAlignment="Top" Margin="0,3,0,0"/>
             </Grid>
         </DataTemplate>
     </Window.Resources>
@@ -79,7 +79,10 @@
             Width="96" Height="28" CornerRadius="14" Background="Black" Opacity="0"
             BorderBrush="#26FFFFFF" BorderThickness="0.5" MouseLeftButtonUp="PillClick">
         <Border.ContextMenu>
-            <ContextMenu>
+            <ContextMenu Opened="MenuOpened">
+                <MenuItem x:Name="AppsMenu" Header="Notifications"/>
+                <MenuItem x:Name="QuietItem" Header="Ne pas déranger" IsCheckable="True" Click="QuietClick"/>
+                <Separator/>
                 <MenuItem Header="Quitter IslandBar" Click="Quit"/>
             </ContextMenu>
         </Border.ContextMenu>
@@ -142,16 +145,19 @@
                         <ColumnDefinition/>
                         <ColumnDefinition Width="38"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TimeNow" FontSize="11" Foreground="{StaticResource Dim}"/>
-                    <Grid Grid.Column="1" VerticalAlignment="Center" Height="4">
-                        <Rectangle Fill="#33FFFFFF" RadiusX="2" RadiusY="2"/>
-                        <Rectangle Fill="White" RadiusX="2" RadiusY="2" RenderTransformOrigin="0,0.5">
-                            <Rectangle.RenderTransform>
-                                <ScaleTransform x:Name="ProgressScale" ScaleX="0"/>
-                            </Rectangle.RenderTransform>
-                        </Rectangle>
+                    <TextBlock x:Name="TimeNow" FontSize="11" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                    <Grid x:Name="ProgressTrack" Grid.Column="1" Height="18" Background="Transparent"
+                          MouseLeftButtonDown="SeekDown" MouseMove="SeekDrag" MouseLeftButtonUp="SeekUp">
+                        <Grid VerticalAlignment="Center" Height="4">
+                            <Rectangle Fill="#33FFFFFF" RadiusX="2" RadiusY="2"/>
+                            <Rectangle x:Name="ProgressFill" RadiusX="2" RadiusY="2" RenderTransformOrigin="0,0.5">
+                                <Rectangle.RenderTransform>
+                                    <ScaleTransform x:Name="ProgressScale" ScaleX="0"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                        </Grid>
                     </Grid>
-                    <TextBlock x:Name="TimeEnd" Grid.Column="2" FontSize="11" Foreground="{StaticResource Dim}" TextAlignment="Right"/>
+                    <TextBlock x:Name="TimeEnd" Grid.Column="2" FontSize="11" Foreground="{StaticResource Dim}" TextAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
 
                 <Grid x:Name="VolumeRow" Margin="18,7,18,0" Visibility="Collapsed">
@@ -176,19 +182,30 @@
                     <TextBlock x:Name="VolumeText" Grid.Column="2" FontSize="11" Foreground="{StaticResource Dim}" TextAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
 
+                <Grid x:Name="OutputRow" Margin="18,7,18,0" Height="18" Background="Transparent" Cursor="Hand" Visibility="Collapsed"
+                      ToolTip="Changer de sortie audio" MouseLeftButtonUp="OutputMenu">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="38"/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Path Fill="{StaticResource Dim}" Data="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H5v-2a7 7 0 0 1 14 0v2h-1a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z"
+                          Stretch="Uniform" Width="14" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="OutputText" Grid.Column="1" FontSize="11.5" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                </Grid>
+
                 <Rectangle Height="0.5" Fill="#2EFFFFFF" Margin="18,12,18,0"/>
 
                 <DockPanel Margin="18,9,12,3">
                     <Button DockPanel.Dock="Right" Style="{StaticResource Flat}" Click="ClearNotes" Padding="10,3" Foreground="{StaticResource Dim}" Content="Effacer"/>
-                    <TextBlock Text="Discord" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="NotesHeader" Text="Notifications" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
                 </DockPanel>
 
                 <TextBlock x:Name="Empty" Text="Aucune notification" FontSize="13" Foreground="{StaticResource Faint}" Margin="18,6,18,8" TextWrapping="Wrap"/>
                 <ScrollViewer MaxHeight="184" VerticalScrollBarVisibility="Hidden" Margin="18,0" Focusable="False">
-                    <ItemsControl x:Name="NoteList" ItemTemplate="{StaticResource NoteRow}" Cursor="Hand" MouseLeftButtonUp="OpenDiscordClick" Focusable="False"/>
+                    <ItemsControl x:Name="NoteList" ItemTemplate="{StaticResource NoteRow}" Cursor="Hand" MouseLeftButtonUp="NoteClick" Focusable="False"/>
                 </ScrollViewer>
 
-                <TextBlock Text="Espace lecture · ← → piste · ↑ ↓ volume · Entrée Discord · Suppr effacer · Échap fermer"
+                <TextBlock Text="Espace lecture · ← → piste · ↑ ↓ volume · S sortie&#10;Entrée ouvrir · Suppr effacer · Échap fermer"
                            FontSize="10.5" Foreground="{StaticResource Faint}" TextAlignment="Center" Margin="12,9,12,14"/>
             </StackPanel>
         </Grid>

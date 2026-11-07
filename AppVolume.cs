@@ -3,10 +3,14 @@ using System.Runtime.InteropServices;
 
 namespace IslandBar;
 
+public record AudioOutput(string Id, string Name);
+
 // Volume d'une seule application, celui du mélangeur de volume Windows : le volume général n'est jamais modifié.
 static class AppVolume
 {
-    const int eRender = 0, DEVICE_STATE_ACTIVE = 1, CLSCTX_ALL = 23;
+    const int eRender = 0, eConsole = 0, eMultimedia = 1, eCommunications = 2, DEVICE_STATE_ACTIVE = 1, CLSCTX_ALL = 23, STGM_READ = 0;
+
+    [DllImport("ole32")] static extern int PropVariantClear(ref PropVariant value);
 
     // Lit le premier flux trouvé : une app garde le même niveau sur tous ses flux, puisque Set les règle ensemble.
     public static float? Get(string sourceApp)
@@ -31,6 +35,44 @@ static class AppVolume
         var app = sourceApp.Split('!')[^1];
         if (app.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) app = app[..^4];
         return app.Equals(processName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static List<AudioOutput> Outputs()
+    {
+        var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+        enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, out var devices);
+        devices.GetCount(out var count);
+        var outputs = new List<AudioOutput>();
+        for (var d = 0; d < count; d++)
+        {
+            devices.Item(d, out var device);
+            device.GetId(out var id);
+            outputs.Add(new(id, FriendlyName(device)));
+        }
+        return outputs;
+    }
+
+    public static string DefaultOutput()
+    {
+        ((IMMDeviceEnumerator)new MMDeviceEnumerator()).GetDefaultAudioEndpoint(eRender, eMultimedia, out var device);
+        device.GetId(out var id);
+        return id;
+    }
+
+    // Change la sortie de tout le PC, comme le panneau Son de Windows : Discord suit aussi.
+    public static void SetDefaultOutput(string id)
+    {
+        var policy = (IPolicyConfig)new PolicyConfigClient();
+        foreach (var role in new[] { eConsole, eMultimedia, eCommunications }) policy.SetDefaultEndpoint(id, role);
+    }
+
+    static string FriendlyName(IMMDevice device)
+    {
+        device.OpenPropertyStore(STGM_READ, out var store);
+        var key = new PropertyKey { Format = new("A45C254E-DF1C-4EFD-8020-67D146A850E0"), Id = 14 }; // PKEY_Device_FriendlyName
+        store.GetValue(ref key, out var value);
+        try { return Marshal.PtrToStringUni(value.Text); }
+        finally { PropVariantClear(ref value); }
     }
 
     // Parcourt toutes les sorties actives : une app peut être routée ailleurs que sur la sortie par défaut.
@@ -72,6 +114,7 @@ static class AppVolume
     interface IMMDeviceEnumerator
     {
         void EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
+        void GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice device);
     }
 
     [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -85,6 +128,51 @@ static class AppVolume
     interface IMMDevice
     {
         void Activate(ref Guid iid, int context, nint parameters, [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+        void OpenPropertyStore(int access, out IPropertyStore store);
+        void GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
+    }
+
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyStore
+    {
+        void GetCount(out int count);
+        void GetAt(int index, out PropertyKey key);
+        void GetValue(ref PropertyKey key, out PropVariant value);
+    }
+
+    struct PropertyKey
+    {
+        public Guid Format;
+        public int Id;
+    }
+
+    // PROPVARIANT réduit à ce qui sert ici : le type, puis le pointeur du texte à l'offset 8.
+    [StructLayout(LayoutKind.Sequential, Size = 24)]
+    struct PropVariant
+    {
+        public long Type;
+        public nint Text;
+    }
+
+    [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+    class PolicyConfigClient;
+
+    // Interface non documentée, la seule qui change la sortie par défaut : c'est celle du panneau Son de Windows.
+    // L'ordre de la vtable compte : les méthodes inutilisées restent déclarées pour garder SetDefaultEndpoint à sa place.
+    [ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPolicyConfig
+    {
+        void GetMixFormat();
+        void GetDeviceFormat();
+        void ResetDeviceFormat();
+        void SetDeviceFormat();
+        void GetProcessingPeriod();
+        void SetProcessingPeriod();
+        void GetShareMode();
+        void SetShareMode();
+        void GetPropertyValue();
+        void SetPropertyValue();
+        void SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string id, int role);
     }
 
     [ComImport, Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

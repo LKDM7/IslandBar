@@ -10,10 +10,13 @@ Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible t
 
 ## Ce qu'elle fait
 
-- **Musique :** titre, pochette, égaliseur animé, progression, lecture/pause, piste précédente et suivante. Elle suit tout lecteur qui publie ses contrôles média à Windows, comme un navigateur.
-- **Notifications Discord :** auteur, message et photo de profil s'affichent 5 secondes. Le nombre de notifications non lues reste visible sur la barre.
-- **Accès au salon :** cliquer sur une notification ouvre directement son salon ou sa conversation privée.
+- **Musique :** titre, pochette, égaliseur animé, lecture/pause, piste précédente et suivante. La barre de progression est cliquable, si le lecteur l'accepte, et prend la couleur de la pochette comme l'égaliseur. Elle suit tout lecteur qui publie ses contrôles média à Windows, comme un navigateur.
+- **Notifications :** Discord par défaut, et toute autre application cochée dans le menu (WhatsApp, Teams, mails...). Auteur, message et image s'affichent 5 secondes. Le nombre de notifications non lues reste visible sur la barre.
+- **Accès au salon :** cliquer sur une notification Discord ouvre directement son salon ou sa conversation privée. Pour une autre application, le clic ouvre l'application.
 - **Volume par application :** le réglage agit seulement sur l'application en lecture, pas sur le son général du PC.
+- **Sortie audio :** passe du casque aux enceintes depuis le panneau. Contrairement au volume, ce choix vaut pour tout le PC.
+- **Ne pas déranger :** pendant un jeu, une vidéo ou une présentation en plein écran, ou à la demande depuis le menu, les notifications ne s'affichent plus. Elles sont gardées et reviennent dans le badge à la fin.
+- **Mises à jour :** IslandBar cherche les nouvelles versions dans les Releases et le signale par une notification. Un clic l'installe et la relance.
 - **Discrétion :** sans musique ni notification, la barre est invisible et les clics passent au travers. Elle ne vole jamais le focus, sauf quand tu l'ouvres.
 
 ## Raccourcis
@@ -25,11 +28,12 @@ Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible t
 | `Espace` | Lecture / pause |
 | `←` `→` | Piste précédente / suivante |
 | `↑` `↓` | Volume de l'application, par pas de 5 % |
+| `S` | Choisir la sortie audio |
 | `Entrée` | Ouvrir la notification la plus récente |
 | `Suppr` | Effacer les notifications |
 | `Échap` | Fermer le panneau |
 
-Quand la barre est visible, un clic l'ouvre aussi. Un clic droit permet de la quitter.
+Quand la barre est visible, un clic l'ouvre aussi. Un clic droit ouvre le menu : applications à afficher, ne pas déranger et quitter. Une application apparaît dans ce menu dès sa première notification.
 
 ## Installation
 
@@ -87,6 +91,8 @@ Set-ItemProperty $discord -Name ShowBanner -Value 0 -Type DWord
 
 Si IslandBar est fermée, ces notifications n'apparaissent alors plus à l'écran. Elles restent dans le centre de notifications.
 
+Pour les applications cochées dans le menu, IslandBar coupe et rétablit cette bannière elle-même. La désinstallation la rétablit aussi.
+
 ## Connexion à Discord
 
 Les notifications Windows de Discord ne contiennent pas l'identifiant du salon. Pour y accéder, IslandBar utilise l'API locale de Discord. Au premier lancement, Discord demande une autorisation à accepter une seule fois.
@@ -99,8 +105,10 @@ Sans cette autorisation, tout le reste fonctionne : cliquer sur une notification
 
 ## Confidentialité
 
-- Rien n'est envoyé ailleurs qu'à `discord.com`, uniquement pour obtenir et renouveler le jeton de connexion.
-- Les notifications restent en mémoire et disparaissent à la fermeture de l'application.
+- Seuls deux services sont contactés : `discord.com`, pour obtenir et renouveler le jeton de connexion, et GitHub, pour chercher les mises à jour toutes les 6 heures et les télécharger. Aucune notification ni aucun nom d'application ne leur est envoyé.
+- Une mise à jour n'est installée qu'après un clic, et seulement si son empreinte SHA-256 correspond à celle publiée sur GitHub.
+- Les notifications restent en mémoire et disparaissent à la fermeture de l'application. Seules celles des applications cochées s'affichent.
+- La liste des applications vues et tes choix sont enregistrés dans `%APPDATA%\IslandBar\settings.json`.
 - Le jeton est chiffré avec le compte Windows dans `%APPDATA%\IslandBar\discord.token`.
 - La base de notifications de Windows est lue uniquement pour récupérer les photos de profil. Seuls les fichiers locaux sont ouverts.
 
@@ -110,4 +118,13 @@ Sans cette autorisation, tout le reste fonctionne : cliquer sur une notification
 - La ligne de volume n'apparaît pas si l'application en lecture n'est pas reconnue, ce qui peut arriver avec Firefox ou certaines applications du Microsoft Store.
 - La barre reste invisible par-dessus les jeux en plein écran exclusif. En fenêtré sans bordure, elle s'affiche.
 - Il n'est pas possible de répondre à un message depuis la barre.
+- Hors Discord, le clic sur une notification ouvre l'application, pas le message précis.
+- Ouvrir soi-même une application du Microsoft Store n'efface pas toujours ses notifications de la barre : `Suppr` les retire.
+- Changer la sortie audio passe par une interface Windows non documentée, qu'une mise à jour de Windows pourrait casser.
+- Le mode ne pas déranger manuel se désactive au redémarrage de la barre.
+- Les mises à jour exigent un dépôt public : GitHub ne répond pas aux visiteurs anonymes sur un dépôt privé.
 - Testée uniquement sur un PC sous Windows 11 (build 26200) avec un écran principal.
+
+## Licence
+
+[MIT](LICENSE).

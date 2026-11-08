@@ -74,7 +74,8 @@ public partial class MainWindow : Window
     static readonly string OldLog = Path.ChangeExtension(LogPath, ".old.log");
     const long MaxLog = 1 << 20;
     static readonly string NotificationWal = Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db-wal");
-    const int FullCheckEvery = 10;
+    const int FullCheckEvery = 60; // relevé de secours, voir NotificationsMoved
+    const int TrackCheckEvery = 5; // relecture de secours du titre, voir PollMusic
     static readonly TimeSpan PlayerTimeout = TimeSpan.FromSeconds(3); // un lecteur figé ne doit pas bloquer les notifications
 
     readonly ObservableCollection<Note> notes = [];
@@ -93,6 +94,9 @@ public partial class MainWindow : Window
     Note toast;
     DateTime toastUntil;
     string trackKey, lastError;
+    GlobalSystemMediaTransportControlsSessionMediaProperties track; // titre lu en dernier, voir PollMusic
+    (string, TimeSpan, TimeSpan) trackShape;
+    int trackAge;
     bool expanded, playing, polling, springing, hidden = true, firstNotificationPoll = true;
     List<AudioOutput> outputs = [];
     TimeSpan duration;
@@ -199,6 +203,7 @@ public partial class MainWindow : Window
         RefreshVolume();
         RefreshOutput();
         Apply();
+        Poll(); // le temps du morceau n'est plus tenu à jour panneau fermé, voir PollMusic
     }
 
     void Collapse(bool restoreFocus)
@@ -616,7 +621,7 @@ public partial class MainWindow : Window
 
         if (session == null)
         {
-            trackKey = null;
+            (trackKey, track) = (null, null);
             TrackTitle.Text = Strings.NothingPlaying;
             TrackArtist.Text = MiniTitle.Text = "";
             MiniArt.Fill = BigArt.Fill = NoArt;
@@ -625,7 +630,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var track = await session.TryGetMediaPropertiesAsync().AsTask().WaitAsync(PlayerTimeout);
+        // Relire le titre coûtait 0,3 % d'un cœur à chaque seconde. On ne le relit que s'il a pu changer : autre lecteur,
+        // autre durée (le morceau suivant), pochette encore absente, et toutes les 5 s pour un morceau de même durée.
+        var time = session.GetTimelineProperties();
+        var shape = (session.SourceAppUserModelId, time.StartTime, time.EndTime);
+        if (track == null || shape != trackShape || BigArt.Fill == NoArt || ++trackAge >= TrackCheckEvery)
+        {
+            track = await session.TryGetMediaPropertiesAsync().AsTask().WaitAsync(PlayerTimeout);
+            (trackShape, trackAge) = (shape, 0);
+        }
         var key = $"{session.SourceAppUserModelId}|{track.Title}|{track.Artist}";
         // Certains lecteurs publient la pochette après le titre : on la redemande tant qu'elle manque.
         if (key != trackKey || BigArt.Fill == NoArt)
@@ -637,7 +650,7 @@ public partial class MainWindow : Window
             SetAccent(BigArt.Fill);
         }
 
-        var time = session.GetTimelineProperties();
+        if (!expanded) return; // le temps et la progression ne se voient que panneau ouvert ; Expand relance un relevé
         duration = time.EndTime;
         TimeRow.Visibility = time.EndTime > TimeSpan.Zero ? Visibility.Visible : Visibility.Collapsed;
         if (time.EndTime <= TimeSpan.Zero) return;
@@ -785,8 +798,9 @@ public partial class MainWindow : Window
         foreach (var read in notes.Where(n => n.FromProcess(process)).ToList()) notes.Remove(read); // ouvrir l'appli vaut lecture
     }
 
-    // GetNotificationsAsync est l'appel le plus cher de la boucle (5 ms) : on attend que la base de Windows bouge.
-    // Son journal change 30 à 50 ms après une notif et reste immobile sinon ; le relevé régulier couvre un Windows qui ferait autrement.
+    // GetNotificationsAsync est l'appel le plus cher de l'île (23 ms de processeur avec un centre bien rempli) : on attend
+    // que la base de Windows bouge. Son journal change 30 à 50 ms après une notif et reste immobile sinon (vérifié sur 90 s) ;
+    // le relevé de secours, toutes les minutes, couvre un Windows qui ferait autrement.
     bool NotificationsMoved()
     {
         var wal = new FileInfo(NotificationWal);
@@ -839,10 +853,17 @@ public partial class MainWindow : Window
     // Certains jeux, applis et overlays font croire à Windows qu'ils sont en plein écran : le réglage permet de l'ignorer.
     bool Quiet => settings.Quiet || settings.QuietFullscreen && Fullscreen;
 
+    // Le nom ne change qu'avec la fenêtre : le relire chaque seconde coûtait un relevé de tous les processus (0,4 ms).
+    static nint foregroundWindow;
+    static string foregroundName = "";
+
     static string ForegroundProcess()
     {
-        GetWindowThreadProcessId(GetForegroundWindow(), out var pid);
-        return AppVolume.ProcessName(pid);
+        var window = GetForegroundWindow();
+        if (window == foregroundWindow) return foregroundName;
+        GetWindowThreadProcessId(window, out var pid);
+        (foregroundWindow, foregroundName) = (window, AppVolume.ProcessName(pid));
+        return foregroundName;
     }
 
     async Task CheckUpdates()

@@ -21,7 +21,7 @@ Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible t
 - **Accès au salon :** cliquer sur une notification Discord ouvre directement son salon ou sa conversation privée. Pour une autre application, le clic ouvre l'application.
 - **Volume par application :** le réglage agit seulement sur l'application en lecture, pas sur le son général du PC.
 - **Sortie audio :** passe du casque aux enceintes depuis le panneau. Contrairement au volume, ce choix vaut pour tout le PC.
-- **Ne pas déranger :** pendant un jeu, une vidéo ou une présentation en plein écran, ou à la demande depuis les réglages, les notifications ne s'affichent plus. Elles sont gardées et reviennent dans le badge à la fin.
+- **Ne pas déranger :** pendant un jeu, une vidéo ou une présentation en plein écran, ou à la demande depuis les réglages, les notifications ne s'affichent plus. Elles sont gardées et reviennent dans le badge à la fin. Pour les garder pendant les jeux, décoche « En plein écran » dans Réglages › Ne pas déranger.
 - **Choix de l'écran :** avec plusieurs écrans, les réglages permettent de choisir celui où s'affiche la barre.
 - **Barre déplaçable :** maintiens le clic sur la barre, ou sur le fond du panneau, puis fais-la glisser. Sa place est gardée, et dans la moitié basse de l'écran le panneau s'ouvre vers le haut. Pour la remettre en haut au centre, repose-la près de cet endroit ou choisis son écran dans les réglages.
 - **Mises à jour :** IslandBar Lite cherche les nouvelles versions dans les Releases et le signale par une notification. Un clic l'installe et la relance.

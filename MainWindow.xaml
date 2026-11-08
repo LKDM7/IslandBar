@@ -348,7 +348,10 @@
 
                 <Border x:Name="SettingsMenu" Style="{StaticResource Menu}">
                     <StackPanel>
-                        <ContentControl x:Name="QuietRow" ContentTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                        <ToggleButton x:Name="QuietHeader" Style="{StaticResource Section}" Content="{x:Static local:Strings.DoNotDisturb}" Click="SectionClick"/>
+                        <Border Style="{StaticResource SubMenu}" Visibility="{Binding IsChecked, ElementName=QuietHeader, Converter={StaticResource WhenTrue}}">
+                            <ItemsControl x:Name="QuietList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                        </Border>
                         <StackPanel x:Name="ScreenChoice" Visibility="Collapsed">
                             <ToggleButton x:Name="ScreenHeader" Style="{StaticResource Section}" Content="{x:Static local:Strings.ScreenLabel}" Click="SectionClick"/>
                             <Border Style="{StaticResource SubMenu}" Visibility="{Binding IsChecked, ElementName=ScreenHeader, Converter={StaticResource WhenTrue}}">

@@ -21,7 +21,7 @@ A minimal Dynamic Island style bar for Windows 11. It stays invisible until ther
 - **Jump to the channel:** clicking a Discord notification opens its channel or private conversation. For any other app, the click opens the app.
 - **Per-app volume:** the slider only affects the app that is playing, not the PC's overall sound.
 - **Audio output:** switch from headphones to speakers from the panel. Unlike the volume, this choice applies to the whole PC.
-- **Do not disturb:** during a full-screen game, video or presentation, or on request from the settings, notifications are no longer shown. They are kept and come back in the badge afterwards.
+- **Do not disturb:** during a full-screen game, video or presentation, or on request from the settings, notifications are no longer shown. They are kept and come back in the badge afterwards. To keep them during games, untick "In full screen" in Settings › Do not disturb.
 - **Screen choice:** with several screens, the settings let you pick the one that shows the bar.
 - **Movable bar:** hold the click on the bar, or on the panel background, then drag it. Its position is kept, and in the lower half of the screen the panel opens upward. To put it back at the top center, drop it near that spot or pick its screen in the settings.
 - **Updates:** IslandBar Lite looks for new versions in the Releases and tells you with a notification. One click installs it and restarts it.

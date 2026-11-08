@@ -354,7 +354,7 @@ public partial class MainWindow : Window
         var open = menu?.Visibility == Visibility.Visible ? null : menu;
         OutputMenu.Visibility = open == OutputMenu ? Visibility.Visible : Visibility.Collapsed;
         SettingsMenu.Visibility = open == SettingsMenu ? Visibility.Visible : Visibility.Collapsed;
-        if (open != SettingsMenu) ScreenHeader.IsChecked = AppsHeader.IsChecked = false;
+        if (open != SettingsMenu) QuietHeader.IsChecked = ScreenHeader.IsChecked = AppsHeader.IsChecked = false;
         OutputChevron.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(open == OutputMenu ? 180 : 0, TimeSpan.FromMilliseconds(180)));
         if (open == OutputMenu) FillOutputs();
         if (open == SettingsMenu) FillSettings();
@@ -364,7 +364,7 @@ public partial class MainWindow : Window
     // Un seul sous-menu ouvert à la fois : le panneau ne doit pas dépasser de la fenêtre.
     void SectionClick(object sender, RoutedEventArgs e)
     {
-        foreach (var section in new[] { ScreenHeader, AppsHeader })
+        foreach (var section in new[] { QuietHeader, ScreenHeader, AppsHeader })
             if (section != sender) section.IsChecked = false;
         UpdateLayout(); // Apply mesure le panneau, et ces lignes sont trop profondes pour l'invalider seules
         Apply();
@@ -400,7 +400,12 @@ public partial class MainWindow : Window
 
     void FillSettings()
     {
-        QuietRow.Content = new Choice(Strings.DoNotDisturb, settings.Quiet, ToggleQuiet);
+        QuietHeader.Tag = settings.Quiet ? Strings.Always : settings.QuietFullscreen ? Strings.InFullScreen : Strings.Off;
+        QuietList.ItemsSource = new[]
+        {
+            new Choice(Strings.Always, settings.Quiet, ToggleQuiet),
+            new Choice(Strings.InFullScreen, settings.QuietFullscreen, ToggleQuietFullscreen),
+        };
         var monitors = Monitors.All();
         ScreenChoice.Visibility = monitors.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         var chosen = Chosen(monitors);
@@ -436,6 +441,13 @@ public partial class MainWindow : Window
     void ToggleQuiet()
     {
         settings.Quiet = !settings.Quiet;
+        SaveSettings();
+        Apply();
+    }
+
+    void ToggleQuietFullscreen()
+    {
+        settings.QuietFullscreen = !settings.QuietFullscreen;
         SaveSettings();
         Apply();
     }
@@ -816,7 +828,8 @@ public partial class MainWindow : Window
     static bool Fullscreen => SHQueryUserNotificationState(out var state) == 0
         && state is QUNS_BUSY or QUNS_RUNNING_D3D_FULL_SCREEN or QUNS_PRESENTATION_MODE;
 
-    bool Quiet => settings.Quiet || Fullscreen;
+    // Certains jeux, applis et overlays font croire à Windows qu'ils sont en plein écran : le réglage permet de l'ignorer.
+    bool Quiet => settings.Quiet || settings.QuietFullscreen && Fullscreen;
 
     static string ForegroundProcess()
     {

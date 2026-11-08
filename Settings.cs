@@ -17,6 +17,7 @@ public class Settings
 
     public Dictionary<string, AppChoice> Apps { get; set; } = [];
     public bool Quiet { get; set; } // ne pas déranger, posé à la main
+    public bool QuietFullscreen { get; set; } = true; // ne pas déranger quand Windows signale un plein écran ; absent d'un ancien fichier : vrai
     public string Screen { get; set; } // nom Windows de l'écran choisi ; absent : l'écran principal
     public Point? Bar { get; set; } // milieu de la barre posée à la main ; absent : en haut, au centre de l'écran
 

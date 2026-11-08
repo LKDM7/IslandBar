@@ -21,6 +21,9 @@ public static class Strings
     public static string AccessDenied => T("Accès refusé : Paramètres Windows › Confidentialité › Notifications", "Access denied: Windows Settings › Privacy › Notifications");
     public static string DoNotDisturb => T("Ne pas déranger", "Do not disturb");
     public static string NotificationsQuiet => $"{Notifications} · {DoNotDisturb}";
+    public static string Always => T("Toujours", "Always");
+    public static string InFullScreen => T("En plein écran", "In full screen");
+    public static string Off => T("Désactivé", "Off");
     public static string ShowFrom => T("Afficher les notifications de", "Show notifications from");
     public static string OutOf(int part, int total) => T($"{part} sur {total}", $"{part} of {total}");
     public static string NoApps => T("Aucune application pour l'instant", "No apps yet");

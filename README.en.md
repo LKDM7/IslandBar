@@ -102,7 +102,8 @@ The installer offers this. Without it:
 
 ```powershell
 $exe = (Resolve-Path .\app\IslandBar.exe).Path
-Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name IslandBar -Value "`"$exe`""
+$t = New-ScheduledTaskTrigger -AtLogOn -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name); $t.Delay = 'PT10S'
+Register-ScheduledTask -TaskName IslandBar -Force -Action (New-ScheduledTaskAction -Execute $exe) -Trigger $t -Settings (New-ScheduledTaskSettingsSet -ExecutionTimeLimit 0 -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries)
 ```
 
 ### Windows banners
@@ -113,7 +114,7 @@ For the apps ticked in the settings, IslandBar Lite turns the Windows banner off
 
 No connection is needed to open the right channel from a recent notification. A click replays the Windows click on the notification: Discord opens the channel itself, with no account to connect and nothing to configure. Discord closes its notification after a few seconds (still valid at 11 s, no longer at 20 s when tested). After that, the click simply opens Discord.
 
-To find the channel of an older notification, IslandBar Lite can also use Discord's local API, because Windows notifications don't contain the channel ID. On first launch, Discord then asks for an authorization to accept once.
+To find the channel of an older notification, IslandBar Lite can also use Discord's local API, because Windows notifications don't contain the channel ID. On first launch, Discord then asks for an authorization to accept once. If you decline it, IslandBar Lite doesn't ask again: delete `%APPDATA%\IslandBar\discord.off` to be asked on the next launch.
 
 The connection goes through the Discord application set by `ClientId` in `DiscordRpc.cs`, in **Public Client** mode, with the redirect `http://127.0.0.1`. No secret is needed.
 

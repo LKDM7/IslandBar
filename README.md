@@ -102,7 +102,8 @@ L'installateur le propose. Sans lui :
 
 ```powershell
 $exe = (Resolve-Path .\app\IslandBar.exe).Path
-Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name IslandBar -Value "`"$exe`""
+$t = New-ScheduledTaskTrigger -AtLogOn -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name); $t.Delay = 'PT10S'
+Register-ScheduledTask -TaskName IslandBar -Force -Action (New-ScheduledTaskAction -Execute $exe) -Trigger $t -Settings (New-ScheduledTaskSettingsSet -ExecutionTimeLimit 0 -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries)
 ```
 
 ### Bannières Windows
@@ -113,7 +114,7 @@ Pour les applications cochées dans les réglages, IslandBar Lite coupe la banni
 
 Aucune connexion n'est nécessaire pour ouvrir le bon salon depuis une notification récente. Un clic rejoue le clic Windows sur la notification : Discord ouvre lui-même le salon, sans compte à connecter ni réglage. Discord ferme sa notification au bout de quelques secondes (encore valable à 11 s, plus à 20 s lors du test). Passé ce délai, le clic ouvre simplement Discord.
 
-Pour retrouver le salon d'une notification plus ancienne, IslandBar Lite peut aussi utiliser l'API locale de Discord, car les notifications Windows ne contiennent pas l'identifiant du salon. Au premier lancement, Discord demande alors une autorisation à accepter une seule fois.
+Pour retrouver le salon d'une notification plus ancienne, IslandBar Lite peut aussi utiliser l'API locale de Discord, car les notifications Windows ne contiennent pas l'identifiant du salon. Au premier lancement, Discord demande alors une autorisation à accepter une seule fois. Si tu la refuses, IslandBar Lite ne la redemande plus : supprime `%APPDATA%\IslandBar\discord.off` pour qu'elle la redemande au prochain lancement.
 
 La connexion passe par l'application Discord définie par `ClientId` dans `DiscordRpc.cs`, en mode **Public Client**, avec la redirection `http://127.0.0.1`. Aucun secret n'est nécessaire.
 

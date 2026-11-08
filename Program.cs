@@ -118,6 +118,7 @@ static class Program
             && Settings.Parse("{\"Bar\":\"pas un point\"}").Bar == null
             && Settings.Parse("{\"Apps\":{\"x\":{\"Name\":\"X\",\"Show\":true}}}").Apps["x"] == new AppChoice("X", true) // fichier d'une ancienne version
             && !Settings.BannerOff("appli-qui-n-existe-pas")
+            && SettingsLocked()
             && AppVolume.ProcessName(uint.MaxValue) == ""
             && AppVolume.ProcessOf("Spotify.exe") == "Spotify"
             && AppVolume.ProcessOf("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify") == "Spotify"
@@ -129,6 +130,21 @@ static class Program
             && Math.Abs(MainWindow.BarScale(.45, 0) - .675) < 1e-9
             && Math.Abs(MainWindow.BarScale(.72, 2) - .675) < 1e-9; // 3e barre : un aller dure .48 s
         return ok ? 0 : 1;
+    }
+
+    // Fichier verrouillé (antivirus, sauvegarde) : les défauts servent, mais Save ne doit pas écraser les vrais réglages.
+    static bool SettingsLocked()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"islandbar-selftest-settings-{Environment.ProcessId}.json");
+        try
+        {
+            System.IO.File.WriteAllText(path, "{\"Quiet\":true}");
+            var readable = Settings.Load(path);
+            using var locked = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.None);
+            return readable is { Quiet: true, Unreadable: false } && Settings.Load(path) is { Quiet: false, Unreadable: true }
+                && !Settings.Load(path + ".absent").Unreadable;
+        }
+        finally { System.IO.File.Delete(path); }
     }
 
     const string GoodUrl = "https://github.com/LKDM7/IslandBar-Lite/releases/download/v1.2.0/IslandBar-Lite-Setup.exe";

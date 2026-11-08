@@ -32,17 +32,27 @@ static class ScriptNotes
         return (message[(split + 1)..].ReplaceLineEndings(" ").Trim(), split > 0 ? message[..split] : null);
     }
 
-    public static async Task Listen(Action<string, string> received)
+    // Une erreur (canal encore tenu par une île qui se ferme, client coupé en pleine écriture) est notée, puis l'écoute
+    // reprend : sans ça, plus aucun --notify n'arriverait jusqu'au prochain redémarrage.
+    public static async Task Listen(Action<string, string> received, Action<Exception> failed)
     {
         while (true)
         {
-            using var pipe = new NamedPipeServerStream(Pipe, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-            await pipe.WaitForConnectionAsync();
-            using var reader = new StreamReader(pipe);
-            var buffer = new char[MaxPath + 1 + MaxLength];
-            var length = await reader.ReadBlockAsync(buffer);
-            var (text, icon) = Read(new string(buffer, 0, length));
-            if (text != "") received(text, icon);
+            try
+            {
+                using var pipe = new NamedPipeServerStream(Pipe, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+                await pipe.WaitForConnectionAsync();
+                using var reader = new StreamReader(pipe);
+                var buffer = new char[MaxPath + 1 + MaxLength];
+                var length = await reader.ReadBlockAsync(buffer);
+                var (text, icon) = Read(new string(buffer, 0, length));
+                if (text != "") received(text, icon);
+            }
+            catch (Exception ex)
+            {
+                failed(ex);
+                await Task.Delay(TimeSpan.FromSeconds(1)); // une erreur qui se répète ne doit pas faire tourner la boucle à vide
+            }
         }
     }
 }

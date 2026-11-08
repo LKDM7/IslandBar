@@ -53,7 +53,6 @@ public partial class MainWindow : Window
     [DllImport("kernel32")] static extern bool SetProcessWorkingSetSize(nint process, nint min, nint max);
     [DllImport("user32")] static extern uint MapVirtualKeyW(uint code, uint type);
     [DllImport("user32")] static extern nint GetForegroundWindow();
-    [DllImport("user32")] static extern bool SetForegroundWindow(nint hwnd);
     [DllImport("user32")] static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
     [DllImport("user32")] static extern nint GetWindowLongPtrW(nint hwnd, int index);
     [DllImport("user32")] static extern nint SetWindowLongPtrW(nint hwnd, int index, nint value);
@@ -72,6 +71,8 @@ public partial class MainWindow : Window
     static readonly Geometry PauseGeometry = Geometry.Parse("M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z");
     static readonly Brush NoArt = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2E));
     static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "IslandBar.log");
+    static readonly string OldLog = Path.ChangeExtension(LogPath, ".old.log");
+    const long MaxLog = 1 << 20;
     static readonly string NotificationWal = Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db-wal");
     const int FullCheckEvery = 10;
     static readonly TimeSpan PlayerTimeout = TimeSpan.FromSeconds(3); // un lecteur figé ne doit pas bloquer les notifications
@@ -168,11 +169,11 @@ public partial class MainWindow : Window
         new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Poll(), Dispatcher).Start();
         new DispatcherTimer(TimeSpan.FromMinutes(1), DispatcherPriority.Background, (_, _) => FreeMemory(), Dispatcher).Start();
         _ = Safe(CheckUpdates);
-        _ = Safe(() => ScriptNotes.Listen((text, icon) =>
+        _ = ScriptNotes.Listen((text, icon) =>
         {
             Show(new Note("IslandBar Lite", text, DateTime.Now) { Avatar = LoadImage(Avatars.Local(icon)) });
             Apply();
-        }));
+        }, Log);
         Sensors.Watch(
             (microphone, camera) => Dispatcher.BeginInvoke(() => ShowSensors(microphone, camera)),
             ex => Dispatcher.BeginInvoke(() => Log(ex)));
@@ -205,7 +206,7 @@ public partial class MainWindow : Window
         if (!expanded) return;
         expanded = false;
         SetNoActivate(true);
-        if (restoreFocus) SetForegroundWindow(previousWindow);
+        if (restoreFocus) Player.Front(previousWindow);
         Unfold(null);
     }
 
@@ -592,7 +593,12 @@ public partial class MainWindow : Window
     {
         if (ex.Message == lastError) return;
         lastError = ex.Message;
-        try { File.AppendAllText(LogPath, $"{DateTime.Now:s} {ex}\n"); }
+        try
+        {
+            // Plein, le journal passe en .old.log : jamais plus de 2 Mo en tout, même si deux erreurs alternent sans fin.
+            if (new FileInfo(LogPath) is { Exists: true, Length: > MaxLog }) File.Move(LogPath, OldLog, overwrite: true);
+            File.AppendAllText(LogPath, $"{DateTime.Now:s} {ex}\n");
+        }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) { } // un journal bloqué ne doit pas fermer l'île
     }
 
@@ -742,6 +748,7 @@ public partial class MainWindow : Window
             using var file = File.OpenRead(path);
             return Decode(file);
         }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { return null; } // Chrome efface ses images de notification : rien d'anormal
         catch (Exception ex)
         {
             Log(ex);
@@ -770,6 +777,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception ex) { Log(ex); }
             }
+            seen.IntersectWith(current.Select(n => n.Id)); // sortie du centre de notifications, une notification n'y revient jamais
             firstNotificationPoll = false;
         }
         if (notes.Count == 0) return;
@@ -796,7 +804,7 @@ public partial class MainWindow : Window
         if (settings.Apps.TryGetValue(id, out var app)) return app.Show;
         settings.Apps[id] = new(name, true, Settings.BannerOff(id));
         Settings.SetBanner(id, show: false);
-        settings.Save();
+        SaveSettings(); // pas Save : une erreur d'écriture ferait perdre cette notification, sa bannière déjà coupée
         return true;
     }
 
@@ -1026,8 +1034,17 @@ public partial class MainWindow : Window
         if (note.AppId == "") return; // message de l'île : il n'y a rien à ouvrir
         notes.Remove(note); // certaines applis du Store ne sont pas reconnues au premier plan
         if (await Replay(note)) return;
-        try { Process.Start(new ProcessStartInfo(LinkFor(note)) { UseShellExecute = true }); }
-        catch (Win32Exception ex) { Log(ex); }
+        // Une appli système ou une icône de la zone de notification n'a pas d'appli à ouvrir : la vraie notification,
+        // avec ses boutons (redémarrer, analyser...), attend alors dans le centre de notifications de Windows.
+        foreach (var link in new[] { LinkFor(note), "ms-actioncenter:" })
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(link) { UseShellExecute = true })?.Dispose();
+                return;
+            }
+            catch (Win32Exception ex) { Log(ex); }
+        }
     }
 
     // Le clic Windows rejoué marche pour tout le monde, sans RPC ni testeurs : Discord ouvre lui-même le salon.

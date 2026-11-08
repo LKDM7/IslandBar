@@ -12,6 +12,7 @@ static class Player
 
     [DllImport("user32")] static extern bool SetForegroundWindow(nint hwnd);
     [DllImport("user32")] static extern bool IsIconic(nint hwnd);
+    [DllImport("user32")] static extern bool IsWindow(nint hwnd);
     [DllImport("user32")] static extern bool ShowWindow(nint hwnd, int command);
 
     // Faux si le lecteur n'a aucune fenêtre visible.
@@ -47,10 +48,14 @@ static class Player
             .OrderByDescending(tab => tab.Current.Name.StartsWith(title, StringComparison.OrdinalIgnoreCase))
             .FirstOrDefault();
 
-    static void Front(AutomationElement window)
+    static void Front(AutomationElement window) => Front((nint)window.Current.NativeWindowHandle);
+
+    // Faux si la fenêtre a été fermée entre-temps.
+    public static bool Front(nint handle)
     {
-        var handle = (nint)window.Current.NativeWindowHandle;
+        if (!IsWindow(handle)) return false;
         if (IsIconic(handle)) ShowWindow(handle, SW_RESTORE);
         SetForegroundWindow(handle);
+        return true;
     }
 }

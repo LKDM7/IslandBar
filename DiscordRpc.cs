@@ -18,6 +18,9 @@ sealed class DiscordRpc(Action<string, string> onChannelLink, Action<Exception> 
     static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(15);
     static readonly HttpClient Http = CreateHttp();
     static readonly string TokenFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "IslandBar", "discord.token");
+    // Posé quand l'autorisation échoue (refus, ou compte non testeur) : sans lui, Discord redemanderait à chaque démarrage.
+    // Le supprimer pour que l'île redemande ; la désinstallation l'efface avec le dossier.
+    static readonly string RefusedFile = Path.Combine(Path.GetDirectoryName(TokenFile), "discord.off");
 
     NamedPipeClientStream pipe;
 
@@ -33,6 +36,7 @@ sealed class DiscordRpc(Action<string, string> onChannelLink, Action<Exception> 
     // Tourne sur le thread UI : chaque await y revient, donc aucun verrou.
     public async Task Run()
     {
+        if (File.Exists(RefusedFile)) return;
         while (true)
         {
             try
@@ -40,7 +44,6 @@ sealed class DiscordRpc(Action<string, string> onChannelLink, Action<Exception> 
                 pipe = await Connect();
                 if (pipe != null) await Listen();
             }
-            // shortcut: un refus coupe la fonction jusqu'au prochain lancement, donc la question revient à chaque démarrage ; mémoriser le refus si l'app est partagée
             catch (RpcError ex)
             {
                 log(ex);
@@ -108,21 +111,35 @@ sealed class DiscordRpc(Action<string, string> onChannelLink, Action<Exception> 
 
         var verifier = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
         var challenge = Convert.ToBase64String(SHA256.HashData(Encoding.ASCII.GetBytes(verifier))).Replace('+', '-').Replace('/', '_').TrimEnd('=');
-        var answer = await Request("AUTHORIZE", new JsonObject
+        try
         {
-            ["client_id"] = ClientId,
-            ["scopes"] = new JsonArray("rpc", "rpc.notifications.read"),
-            ["code_challenge"] = challenge,
-            ["code_challenge_method"] = "S256",
-        });
-        return await Exchange(new()
+            var answer = await Request("AUTHORIZE", new JsonObject
+            {
+                ["client_id"] = ClientId,
+                ["scopes"] = new JsonArray("rpc", "rpc.notifications.read"),
+                ["code_challenge"] = challenge,
+                ["code_challenge_method"] = "S256",
+            });
+            return await Exchange(new()
+            {
+                ["grant_type"] = "authorization_code",
+                ["code"] = (string)answer["code"],
+                ["redirect_uri"] = Redirect,
+                ["client_id"] = ClientId,
+                ["code_verifier"] = verifier,
+            }) ?? throw new RpcError("token", "code rejeté");
+        }
+        catch (RpcError)
         {
-            ["grant_type"] = "authorization_code",
-            ["code"] = (string)answer["code"],
-            ["redirect_uri"] = Redirect,
-            ["client_id"] = ClientId,
-            ["code_verifier"] = verifier,
-        }) ?? throw new RpcError("token", "code rejeté");
+            // Une panne réseau ne passe pas par ici : elle n'est pas un refus, et la boucle réessaie.
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(RefusedFile));
+                File.WriteAllText(RefusedFile, "");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { log(ex); }
+            throw;
+        }
     }
 
     // Renvoie null si le jeton est mort. Une panne réseau ou un 5xx lève une exception : elle ne doit pas relancer l'autorisation.

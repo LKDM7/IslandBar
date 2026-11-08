@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Windows;
 using Microsoft.Win32;
 
@@ -21,11 +22,15 @@ public class Settings
     public string Screen { get; set; } // nom Windows de l'écran choisi ; absent : l'écran principal
     public Point? Bar { get; set; } // milieu de la barre posée à la main ; absent : en haut, au centre de l'écran
 
+    [JsonIgnore] public bool Unreadable { get; private set; } // fichier présent mais illisible pour l'instant, voir Load
+
     // Fichier absent ou abîmé : on repart des réglages par défaut plutôt que d'empêcher l'île de démarrer.
-    public static Settings Load()
+    // Présent mais bloqué (antivirus, sauvegarde) : les défauts servent pour cette fois, sans jamais écraser le vrai fichier.
+    public static Settings Load(string path = null)
     {
-        try { return Parse(File.ReadAllText(FilePath)); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return new(); }
+        try { return Parse(File.ReadAllText(path ?? FilePath)); }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { return new(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return new() { Unreadable = true }; }
     }
 
     public static Settings Parse(string json)
@@ -36,6 +41,7 @@ public class Settings
 
     public void Save()
     {
+        if (Unreadable) return;
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
         var temporary = FilePath + ".tmp";
         File.WriteAllText(temporary, JsonSerializer.Serialize(this));

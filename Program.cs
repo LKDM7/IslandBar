@@ -53,8 +53,8 @@ static class Program
             && !Updater.IsNewer(null, new(1, 1, 0, 0))
             && Updater.Parse(Asset("v1.2.0", GoodUrl, "sha256:ab"), new(1, 1, 0, 0)) is { Tag: "v1.2.0", Url: GoodUrl, Sha256: "ab" }
             && Updater.Parse(Asset("v1.1.0", GoodUrl, "sha256:ab"), new(1, 1, 0, 0)) == null
-            && Updater.Parse(Asset("v1.2.0", "https://pirate.example/IslandBar-Setup.exe", "sha256:ab"), new(1, 1, 0, 0)) == null
-            && Updater.Parse(Asset("v1.2.0", "https://github.com/LKDM7/IslandBar/releases/download/../../../../pirate/x.exe", "sha256:ab"), new(1, 1, 0, 0)) == null
+            && Updater.Parse(Asset("v1.2.0", "https://pirate.example/IslandBar-Lite-Setup.exe", "sha256:ab"), new(1, 1, 0, 0)) == null
+            && Updater.Parse(Asset("v1.2.0", "https://github.com/LKDM7/IslandBar-Lite/releases/download/../../../../pirate/x.exe", "sha256:ab"), new(1, 1, 0, 0)) == null
             && Updater.Parse(Asset("v1.2.0", GoodUrl, "md5:ab"), new(1, 1, 0, 0)) == null
             && Updater.Verified("abc"u8.ToArray(), "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD")
             && !Updater.Verified("abd"u8.ToArray(), "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD")
@@ -129,8 +129,8 @@ static class Program
         return ok ? 0 : 1;
     }
 
-    const string GoodUrl = "https://github.com/LKDM7/IslandBar/releases/download/v1.2.0/IslandBar-Setup.exe";
+    const string GoodUrl = "https://github.com/LKDM7/IslandBar-Lite/releases/download/v1.2.0/IslandBar-Lite-Setup.exe";
 
     static string Asset(string tag, string url, string digest) =>
-        $$"""{"tag_name":"{{tag}}","assets":[{"name":"IslandBar-Setup.exe","browser_download_url":"{{url}}","digest":"{{digest}}"}]}""";
+        $$"""{"tag_name":"{{tag}}","assets":[{"name":"IslandBar-Lite-Setup.exe","browser_download_url":"{{url}}","digest":"{{digest}}"}]}""";
 }

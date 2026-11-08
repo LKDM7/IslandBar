@@ -1,12 +1,12 @@
-<img src="assets/logo/logo-256.png" alt="Logo d'IslandBar" width="96">
+<img src="assets/logo/logo-256.png" alt="Logo d'IslandBar Lite" width="96">
 
-# IslandBar
+# IslandBar Lite
 
 [English](README.en.md) | **Français**
 
 Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible tant qu'il n'y a rien à montrer, puis apparaît en haut de l'écran pour afficher ta musique, tes notifications et les applications qui utilisent ton micro ou ta caméra.
 
-**[⬇ Télécharger IslandBar-Setup.exe](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe)**
+**[⬇ Télécharger IslandBar-Lite-Setup.exe](https://github.com/LKDM7/IslandBar-Lite/releases/latest/download/IslandBar-Lite-Setup.exe)**
 
 <img src="assets/demo/demo-fr.gif" alt="Démonstration : la barre affiche une musique, une notification Discord, le panneau complet, les réglages puis le point du micro" width="420">
 
@@ -24,7 +24,7 @@ Une barre minimale façon Dynamic Island pour Windows 11. Elle reste invisible t
 - **Ne pas déranger :** pendant un jeu, une vidéo ou une présentation en plein écran, ou à la demande depuis les réglages, les notifications ne s'affichent plus. Elles sont gardées et reviennent dans le badge à la fin.
 - **Choix de l'écran :** avec plusieurs écrans, les réglages permettent de choisir celui où s'affiche la barre.
 - **Barre déplaçable :** maintiens le clic sur la barre, ou sur le fond du panneau, puis fais-la glisser. Sa place est gardée, et dans la moitié basse de l'écran le panneau s'ouvre vers le haut. Pour la remettre en haut au centre, repose-la près de cet endroit ou choisis son écran dans les réglages.
-- **Mises à jour :** IslandBar cherche les nouvelles versions dans les Releases et le signale par une notification. Un clic l'installe et la relance.
+- **Mises à jour :** IslandBar Lite cherche les nouvelles versions dans les Releases et le signale par une notification. Un clic l'installe et la relance.
 - **Discrétion :** sans rien à afficher, la barre est invisible et les clics passent au travers. Elle ne vole jamais le focus, sauf quand tu l'ouvres.
 - **Langues :** l'interface est en français si Windows est en français, en anglais sinon.
 
@@ -46,13 +46,13 @@ Quand la barre est visible, un clic l'ouvre aussi. L'engrenage du panneau, ou un
 
 ## Notifications depuis un script
 
-Tant qu'IslandBar tourne, n'importe quel script peut lui envoyer un message :
+Tant qu'IslandBar Lite tourne, n'importe quel script peut lui envoyer un message :
 
 ```powershell
 & "$env:LOCALAPPDATA\Programs\IslandBar\IslandBar.exe" --notify "Build terminé"
 ```
 
-Le message s'affiche comme une notification, dans la limite de 300 caractères. Le code de sortie vaut 0 si le message est passé, 1 si IslandBar n'est pas lancée. Seul ton compte Windows peut écrire à la barre.
+Le message s'affiche comme une notification, dans la limite de 300 caractères. Le code de sortie vaut 0 si le message est passé, 1 si IslandBar Lite n'est pas lancée. Seul ton compte Windows peut écrire à la barre.
 
 Pour afficher une image à la place de l'initiale, ajoute `--icon` juste après `--notify`, suivi d'un PNG ou d'un JPG présent sur ton PC (pas sur un partage réseau) :
 
@@ -62,19 +62,19 @@ Pour afficher une image à la place de l'initiale, ajoute `--icon` juste après 
 
 ## Installation
 
-Télécharge [`IslandBar-Setup.exe`](https://github.com/LKDM7/IslandBar/releases/latest/download/IslandBar-Setup.exe) depuis les [Releases](https://github.com/LKDM7/IslandBar/releases), puis lance-le. Il faut seulement Windows 11 (x64) : .NET est inclus et aucun droit administrateur n'est demandé.
+Télécharge [`IslandBar-Lite-Setup.exe`](https://github.com/LKDM7/IslandBar-Lite/releases/latest/download/IslandBar-Lite-Setup.exe) depuis les [Releases](https://github.com/LKDM7/IslandBar-Lite/releases), puis lance-le. Il faut seulement Windows 11 (x64) : .NET est inclus et aucun droit administrateur n'est demandé.
 
 L'installateur n'est pas signé. Si Windows SmartScreen s'affiche, clique sur **Informations complémentaires**, puis sur **Exécuter quand même**.
 
-L'assistant propose de lancer IslandBar au démarrage de Windows. La désinstallation se fait depuis Paramètres › Applications et efface aussi le jeton Discord.
+L'assistant propose de lancer IslandBar Lite au démarrage de Windows. La désinstallation se fait depuis Paramètres › Applications et efface aussi le jeton Discord.
 
 ## Compiler depuis les sources
 
 Il faut Windows 11 et le [SDK .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```powershell
-git clone https://github.com/LKDM7/IslandBar.git
-cd IslandBar
+git clone https://github.com/LKDM7/IslandBar-Lite.git
+cd IslandBar-Lite
 dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o app
 .\app\IslandBar.exe
 ```
@@ -94,9 +94,9 @@ dotnet publish -c Release -r win-x64 --self-contained true -o dist
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\IslandBar.iss
 ```
 
-Le résultat est `installer\Output\IslandBar-Setup.exe`.
+Le résultat est `installer\Output\IslandBar-Lite-Setup.exe`.
 
-### Lancer IslandBar au démarrage de Windows
+### Lancer IslandBar Lite au démarrage de Windows
 
 L'installateur le propose. Sans lui :
 
@@ -107,13 +107,13 @@ Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name Isl
 
 ### Bannières Windows
 
-Pour les applications cochées dans les réglages, IslandBar coupe la bannière Windows tant qu'elle tourne, pour éviter une double notification. Elle la rétablit quand elle se ferme ou qu'on la désinstalle. Une bannière que tu avais déjà coupée dans Windows reste coupée.
+Pour les applications cochées dans les réglages, IslandBar Lite coupe la bannière Windows tant qu'elle tourne, pour éviter une double notification. Elle la rétablit quand elle se ferme ou qu'on la désinstalle. Une bannière que tu avais déjà coupée dans Windows reste coupée.
 
 ## Connexion à Discord
 
 Aucune connexion n'est nécessaire pour ouvrir le bon salon depuis une notification récente. Un clic rejoue le clic Windows sur la notification : Discord ouvre lui-même le salon, sans compte à connecter ni réglage. Discord ferme sa notification au bout de quelques secondes (encore valable à 11 s, plus à 20 s lors du test). Passé ce délai, le clic ouvre simplement Discord.
 
-Pour retrouver le salon d'une notification plus ancienne, IslandBar peut aussi utiliser l'API locale de Discord, car les notifications Windows ne contiennent pas l'identifiant du salon. Au premier lancement, Discord demande alors une autorisation à accepter une seule fois.
+Pour retrouver le salon d'une notification plus ancienne, IslandBar Lite peut aussi utiliser l'API locale de Discord, car les notifications Windows ne contiennent pas l'identifiant du salon. Au premier lancement, Discord demande alors une autorisation à accepter une seule fois.
 
 La connexion passe par l'application Discord définie par `ClientId` dans `DiscordRpc.cs`, en mode **Public Client**, avec la redirection `http://127.0.0.1`. Aucun secret n'est nécessaire.
 
@@ -123,8 +123,8 @@ Discord réserve cette API aux testeurs d'une application non approuvée. Elle r
 
 - Seuls deux services sont contactés : `discord.com`, pour obtenir et renouveler le jeton de connexion, et GitHub, pour chercher les mises à jour toutes les 6 heures et les télécharger. Aucune notification ni aucun nom d'application ne leur est envoyé.
 - Une mise à jour n'est installée qu'après un clic, et seulement si son empreinte SHA-256 correspond à celle publiée sur GitHub.
-- IslandBar n'ouvre jamais le micro ni la caméra : elle demande seulement à Windows quelles applications les utilisent. Elle ne reçoit ni son ni image, et n'enregistre rien de cet usage.
-- Au clic sur la pochette, IslandBar lit les titres des onglets du navigateur pour trouver celui qui joue. Ils ne sont ni enregistrés ni envoyés.
+- IslandBar Lite n'ouvre jamais le micro ni la caméra : elle demande seulement à Windows quelles applications les utilisent. Elle ne reçoit ni son ni image, et n'enregistre rien de cet usage.
+- Au clic sur la pochette, IslandBar Lite lit les titres des onglets du navigateur pour trouver celui qui joue. Ils ne sont ni enregistrés ni envoyés.
 - Les notifications restent en mémoire et disparaissent à la fermeture de l'application. Seules celles des applications cochées s'affichent.
 - La liste des applications vues et tes choix sont enregistrés dans `%APPDATA%\IslandBar\settings.json`.
 - Le jeton est chiffré avec le compte Windows dans `%APPDATA%\IslandBar\discord.token`.
@@ -136,8 +136,8 @@ Discord réserve cette API aux testeurs d'une application non approuvée. Elle r
 - La ligne de volume n'apparaît pas si l'application en lecture n'est pas reconnue, ce qui peut arriver avec Firefox ou certaines applications du Microsoft Store.
 - La barre reste invisible par-dessus les jeux en plein écran exclusif. En fenêtré sans bordure, elle s'affiche.
 - Il n'est pas possible de répondre à un message depuis la barre.
-- La toute première notification d'une application s'affiche aussi dans Windows : IslandBar ne coupe sa bannière qu'à partir de là.
-- Si IslandBar plante ou est arrêtée de force, les bannières Windows restent coupées jusqu'au prochain lancement suivi d'un « Quitter ».
+- La toute première notification d'une application s'affiche aussi dans Windows : IslandBar Lite ne coupe sa bannière qu'à partir de là.
+- Si IslandBar Lite plante ou est arrêtée de force, les bannières Windows restent coupées jusqu'au prochain lancement suivi d'un « Quitter ».
 - Hors Discord, le clic sur une notification ouvre l'application, pas le message précis.
 - Rejouer le clic passe par un mécanisme interne de Discord, qu'une mise à jour de Discord pourrait changer. Le clic ouvrirait alors simplement Discord.
 - Ouvrir soi-même une application du Microsoft Store n'efface pas toujours ses notifications de la barre : `Suppr` les retire.

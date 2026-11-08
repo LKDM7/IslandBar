@@ -28,7 +28,7 @@ public record Note(string Title, string Body, DateTime When)
     public ImageSource Avatar { get; init; }
     public string Tag { get; init; } // étiquette Windows : Discord retrouve sa notification avec, voir ToastClick
     public string AppId { get; init; } = ""; // vide : message de l'île elle-même
-    public string AppName { get; init; } = "IslandBar";
+    public string AppName { get; init; } = "IslandBar Lite";
     public int Count { get; init; } = 1; // messages regroupés sur cette ligne
     public Release Update { get; init; }
     public string Stamp => $"{AppName} · {When:HH:mm}";
@@ -148,7 +148,7 @@ public partial class MainWindow : Window
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, GetWindowLongPtrW(hwnd, GWL_EXSTYLE) | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
         HwndSource.FromHwnd(hwnd).AddHook(WndProc);
         if (RegisterHotKey(hwnd, 1, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, MapVirtualKeyW(ScanCodeSquare, MAPVK_VSC_TO_VK))) return;
-        MessageBox.Show(Strings.HotkeyTaken, "IslandBar");
+        MessageBox.Show(Strings.HotkeyTaken, "IslandBar Lite");
         Environment.Exit(1); // pas de fermeture normale : l'île déjà lancée garde les bannières coupées, voir OnClosed
     }
 
@@ -170,7 +170,7 @@ public partial class MainWindow : Window
         _ = Safe(CheckUpdates);
         _ = Safe(() => ScriptNotes.Listen((text, icon) =>
         {
-            Show(new Note("IslandBar", text, DateTime.Now) { Avatar = LoadImage(Avatars.Local(icon)) });
+            Show(new Note("IslandBar Lite", text, DateTime.Now) { Avatar = LoadImage(Avatars.Local(icon)) });
             Apply();
         }));
         Sensors.Watch(
@@ -860,7 +860,7 @@ public partial class MainWindow : Window
 
     void Flash(string text, double seconds)
     {
-        toast = new Note("IslandBar", text, DateTime.Now);
+        toast = new Note("IslandBar Lite", text, DateTime.Now);
         toastUntil = DateTime.Now.AddSeconds(seconds);
         Apply();
     }

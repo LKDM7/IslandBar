@@ -16,7 +16,7 @@ public static class Strings
     public static string Clear => T("Effacer", "Clear");
     public static string Notifications => "Notifications";
     public static string NothingPlaying => T("Rien en lecture", "Nothing playing");
-    public static string Quit => T("Quitter IslandBar", "Quit IslandBar");
+    public static string Quit => T("Quitter IslandBar Lite", "Quit IslandBar Lite");
     public static string NoNotifications => T("Aucune notification", "No notifications");
     public static string AccessDenied => T("Accès refusé : Paramètres Windows › Confidentialité › Notifications", "Access denied: Windows Settings › Privacy › Notifications");
     public static string DoNotDisturb => T("Ne pas déranger", "Do not disturb");
@@ -28,7 +28,7 @@ public static class Strings
     public static string ClickToInstall => T("Clique pour l'installer", "Click to install");
     public static string Downloading => T("Téléchargement en cours…", "Downloading…");
     public static string UpdateFailed => T("Mise à jour impossible", "Update failed");
-    public static string HotkeyTaken => T("Ctrl + Alt + ² est déjà pris (IslandBar tourne peut-être déjà).", "Ctrl + Alt + the key left of 1 is already taken (IslandBar may already be running).");
+    public static string HotkeyTaken => T("Ctrl + Alt + ² est déjà pris (IslandBar Lite tourne peut-être déjà).", "Ctrl + Alt + the key left of 1 is already taken (IslandBar Lite may already be running).");
     public static string Help => T(
         "Espace lecture · ← → piste · ↑ ↓ volume · S sortie\nEntrée ouvrir · Suppr effacer · Échap fermer",
         "Space play · ← → track · ↑ ↓ volume · S output\nEnter open · Del clear · Esc close");

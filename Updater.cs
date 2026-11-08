@@ -11,9 +11,9 @@ public record Release(string Tag, string Url, string Sha256);
 // Cherche une version plus récente dans les Releases GitHub. Rien ne s'installe sans un clic sur la notification.
 static class Updater
 {
-    const string Latest = "https://api.github.com/repos/LKDM7/IslandBar/releases/latest";
-    const string Downloads = "https://github.com/LKDM7/IslandBar/releases/download/";
-    const string Setup = "IslandBar-Setup.exe";
+    const string Latest = "https://api.github.com/repos/LKDM7/IslandBar-Lite/releases/latest";
+    const string Downloads = "https://github.com/LKDM7/IslandBar-Lite/releases/download/";
+    const string Setup = "IslandBar-Lite-Setup.exe";
 
     static readonly HttpClient Http = CreateClient();
 

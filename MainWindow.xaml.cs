@@ -771,8 +771,9 @@ public partial class MainWindow : Window
 
     async Task PollNotifications()
     {
-        if (listener == null) return;
-        if (NotificationsMoved())
+        // Sans accès aux notifications de Windows, rien à rattraper : les messages des scripts s'affichent tout de suite.
+        if (listener == null) firstNotificationPoll = false;
+        else if (NotificationsMoved())
         {
             var current = await listener.GetNotificationsAsync(NotificationKinds.Toast);
             foreach (var n in current.OrderBy(n => n.CreationTime))

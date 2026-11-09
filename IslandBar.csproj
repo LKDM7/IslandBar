@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <StartupObject>IslandBar.Program</StartupObject>
-    <Version>1.5.1</Version>
+    <Version>1.5.2</Version>
     <Product>IslandBar Lite</Product>
     <AssemblyTitle>IslandBar Lite</AssemblyTitle>
     <ApplicationIcon>assets\logo\IslandBar.ico</ApplicationIcon>

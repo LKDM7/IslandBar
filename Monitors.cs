@@ -60,6 +60,27 @@ static class Monitors
             up);
     }
 
+    // Un bout de la barre lâché près d'un côté de l'écran : elle s'y colle debout ; ailleurs, elle reste couchée.
+    // Les bouts plutôt que le milieu : une barre large tenue par son autre bout se colle aussi. Au-delà du bord : collée.
+    public static Side SideOf(Monitor monitor, double left, double right, double snap, double scale) =>
+        left - monitor.Left / scale < snap ? Side.Left : (monitor.Left + monitor.Width) / scale - right < snap ? Side.Right : Side.None;
+
+    // Barre debout : la fenêtre colle au côté, centrée sur la barre sans sortir de l'écran.
+    // Anchor : le milieu de la barre dans la fenêtre, autour duquel la bulle et le panneau s'ouvrent.
+    // Room : la hauteur utile sous le haut de la fenêtre ; sur un écran plus bas que la fenêtre, elle dépasse en dessous.
+    public static (double Left, double Top, double Anchor, double Room) Docked(Monitor monitor, double y, Size window, bool right, double scale)
+    {
+        var (top, bottom) = (monitor.Top / scale, monitor.Bottom / scale);
+        y = Math.Max(top, Math.Min(y, bottom));
+        var windowTop = Math.Max(top, Math.Min(y - window.Height / 2, bottom - window.Height)); // écran trop bas : collée en haut
+        return (right ? (monitor.Left + monitor.Width) / scale - window.Width : monitor.Left / scale, windowTop, y - windowTop, bottom - windowTop);
+    }
+
+    // Haut de la barre debout dans la fenêtre : centrée sur son milieu, à 6 px des bords de l'écran utile au moins.
+    // Plus haute que la place (panneau très déplié sur un petit écran) : collée en haut.
+    public static double PillTop(double anchor, double pill, double room, double window) =>
+        Math.Max(6, Math.Min(anchor - pill / 2, Math.Min(window, room) - 6 - pill));
+
     // Le plus proche plutôt que celui qui contient le point : la barre peut être posée dans un trou entre deux écrans.
     public static Monitor Nearest(List<Monitor> monitors, double x, double y) => monitors.MinBy(m =>
         Math.Max(Math.Max(m.Left - x, x - m.Left - m.Width), 0) + Math.Max(Math.Max(m.Top - y, y - m.Bottom), 0));

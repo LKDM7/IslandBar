@@ -15,7 +15,7 @@ A minimal Dynamic Island style bar for Windows 11. It stays invisible until ther
 ## What it does
 
 - **Music:** title, cover art, animated equalizer, play/pause, previous and next track. The progress bar is clickable if the player allows it, and takes the color of the cover art, like the equalizer. On hover, the progress and volume bars preview the value before you click. It follows any player that publishes its media controls to Windows, such as a browser. Clicking the cover art brings the player to the front and, in a browser, selects the tab that is playing.
-- **Notifications:** every app by default (Discord, WhatsApp, Teams, mail...). The settings let you remove the ones you don't want. Author, message and image stay on screen for 5 seconds. The number of unread notifications stays visible on the bar. Several messages from the same person fit on one line, for example "Alice (3)".
+- **Notifications:** every app by default (Discord, WhatsApp, Teams, mail...). The settings let you remove the ones you don't want. Author, message and image stay on screen for 5 seconds. The number of unread notifications stays visible on the bar. Several messages from the same person fit on one line, for example "Alice (3)". Cleared or opened from the island, a notification also leaves the Windows notification center. Opening the app yourself marks it as read, unless it arrived while the app was already in front of you.
 - **Notifications from your scripts:** `IslandBar.exe --notify "Build finished"` shows your own message. See [Notifications from a script](#notifications-from-a-script).
 - **Microphone and camera:** an orange dot for the microphone and a green dot for the camera appear when an app uses them, as on an iPhone. The app's name shows when you hover over the bar.
 - **Jump to the channel:** clicking a Discord notification opens its channel or private conversation. For any other app, the click opens the app.
@@ -23,7 +23,7 @@ A minimal Dynamic Island style bar for Windows 11. It stays invisible until ther
 - **Audio output:** switch from headphones to speakers from the panel. Unlike the volume, this choice applies to the whole PC.
 - **Do not disturb:** during a full-screen game, video or presentation, or on request from the settings, notifications are no longer shown. They are kept and come back in the badge afterwards. To keep them during games, untick "In full screen" in Settings › Do not disturb.
 - **Screen choice:** with several screens, the settings let you pick the one that shows the bar.
-- **Movable bar:** hold the click on the bar, or on the panel background, then drag it. Its position is kept, and in the lower half of the screen the panel opens upward. To put it back at the top center, drop it near that spot or pick its screen in the settings.
+- **Movable bar:** hold the click on the bar, or on the panel background, then drag it. Its position is kept, and in the lower half of the screen the panel opens upward. Dropped against the left or right edge, it stands upright, and the bubble and the panel open inward, at the height where you dropped it. To put it back at the top center, drop it near that spot or pick its screen in the settings.
 - **Updates:** IslandBar Lite looks for new versions in the Releases and tells you with a notification. One click installs it and restarts it.
 - **Out of the way:** with nothing to show, the bar is invisible and clicks go through it. It never takes the focus unless you open it.
 - **Languages:** the interface is in French if Windows is in French, in English otherwise.

@@ -21,6 +21,7 @@ public class Settings
     public bool QuietFullscreen { get; set; } = true; // ne pas déranger quand Windows signale un plein écran ; absent d'un ancien fichier : vrai
     public string Screen { get; set; } // nom Windows de l'écran choisi ; absent : l'écran principal
     public Point? Bar { get; set; } // milieu de la barre posée à la main ; absent : en haut, au centre de l'écran
+    public Side Side { get; set; } // collée debout contre un côté, à la hauteur de Bar ; None : couchée
 
     [JsonIgnore] public bool Unreadable { get; private set; } // fichier présent mais illisible pour l'instant, voir Load
 
@@ -44,7 +45,13 @@ public class Settings
         if (Unreadable) return;
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
         var temporary = FilePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(this));
+        // Écrit sur le disque avant de remplacer : après une coupure de courant, un fichier vide ferait croire que les
+        // bannières coupées par l'île l'avaient été par l'utilisateur, et elles ne reviendraient plus.
+        using (var file = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            JsonSerializer.Serialize(file, this);
+            file.Flush(flushToDisk: true);
+        }
         File.Move(temporary, FilePath, overwrite: true); // en deux temps : une coupure ne doit pas effacer les réglages
     }
 
@@ -71,3 +78,5 @@ public class Settings
             if (app.Show && !app.OffInWindows) SetBanner(id, show);
     }
 }
+
+public enum Side { None, Left, Right }

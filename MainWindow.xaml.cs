@@ -30,6 +30,7 @@ public record Note(string Title, string Body, DateTime When)
     public string AppId { get; init; } = ""; // vide : message de l'île elle-même
     public string AppName { get; init; } = "IslandBar Lite";
     public int Count { get; init; } = 1; // messages regroupés sur cette ligne
+    public uint[] Ids { get; init; } = []; // notifications Windows regroupées sur cette ligne, voir Dismiss
     public Release Update { get; init; }
     public string Stamp => $"{AppName} · {When:HH:mm}";
     public string Label => Count > 1 ? $"{Title} ({Count})" : Title;
@@ -139,11 +140,21 @@ public partial class MainWindow : Window
     {
         var monitors = Monitors.All();
         var scale = Scale(monitors);
+        var screen = Chosen(monitors);
         var up = false;
-        (Left, Top) = Monitors.Place(Chosen(monitors), Width, scale);
-        if (settings.Bar is { } bar) (Left, Top, up) = Monitors.Moved(Chosen(monitors), bar, new(Width, Height), BarEdge, scale);
+        var docked = settings.Side != Side.None && settings.Bar != null;
+        if (docked) (Left, Top, anchor, room) = Monitors.Docked(screen, settings.Bar.Value.Y, new(Width, Height), settings.Side == Side.Right, scale);
+        else
+        {
+            (Left, Top) = Monitors.Place(screen, Width, scale);
+            if (settings.Bar is { } bar) (Left, Top, up) = Monitors.Moved(screen, bar, new(Width, Height), BarEdge, scale);
+        }
+        Orient(docked);
+        Pill.HorizontalAlignment = !docked ? HorizontalAlignment.Center : settings.Side == Side.Left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         Pill.VerticalAlignment = up ? VerticalAlignment.Bottom : VerticalAlignment.Top;
-        Pill.Margin = new Thickness(0, up ? 0 : 6, 0, up ? 6 : 0);
+        if (docked) PlacePill();
+        else Pill.Margin = new Thickness(0, up ? 0 : 6, 0, up ? 6 : 0);
+        if (IsLoaded) Apply(); // couchée ou debout : la barre minimale change de forme
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -294,11 +305,16 @@ public partial class MainWindow : Window
         if (!dragged) return;
         var monitors = Monitors.All();
         var scale = Scale(monitors);
-        var bar = new Point(Left + Width / 2, Pill.VerticalAlignment == VerticalAlignment.Bottom ? Top + Height - BarEdge : Top + BarEdge);
+        // Le milieu de la barre fermée là où on la lâche : debout, son ancre a suivi la fenêtre ; couchée, le repère
+        // habituel à BarEdge du bord de la fenêtre.
+        var (from, to) = BarSpan();
+        var bar = new Point((from + to) / 2, upright ? Top + anchor
+            : Pill.VerticalAlignment == VerticalAlignment.Bottom ? Top + Height - BarEdge : Top + BarEdge);
         var screen = Monitors.Nearest(monitors, bar.X * scale, bar.Y * scale);
         var home = Monitors.Place(screen, Width, scale);
         settings.Screen = screen.Device;
-        settings.Bar = (bar - new Point(home.Left + Width / 2, home.Top + BarEdge)).Length < HomeSnap ? null : bar;
+        settings.Side = Monitors.SideOf(screen, from, to, SideSnap, scale);
+        settings.Bar = settings.Side == Side.None && (bar - new Point(home.Left + Width / 2, home.Top + BarEdge)).Length < HomeSnap ? null : bar;
         SaveSettings();
         Center();
     }
@@ -462,6 +478,7 @@ public partial class MainWindow : Window
     {
         settings.Screen = monitor.Device;
         settings.Bar = null;
+        settings.Side = Side.None;
         SaveSettings();
         Center();
     }
@@ -477,12 +494,14 @@ public partial class MainWindow : Window
         Empty.Visibility = notes.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
         NotesHeader.Text = quiet ? Strings.NotificationsQuiet : Strings.Notifications;
         NotesHeader.Foreground = (Brush)FindResource(quiet ? "QuietBlue" : "Dim");
-        MiniArt.Visibility = MiniTitle.Visibility = Bars.Visibility = playing ? Visibility.Visible : Visibility.Collapsed;
+        MiniArt.Visibility = Bars.Visibility = playing ? Visibility.Visible : Visibility.Collapsed;
+        MiniTitle.Visibility = playing && !upright ? Visibility.Visible : Visibility.Collapsed; // debout, le titre ne tient pas
 
         var sensing = microphoneApps.Count + cameraApps.Count > 0;
         MicDot.Visibility = microphoneApps.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         CameraDot.Visibility = cameraApps.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        SensorText.Visibility = sensing && Pill.IsMouseOver ? Visibility.Visible : Visibility.Collapsed;
+        SensorText.Visibility = sensing && Pill.IsMouseOver && !upright ? Visibility.Visible : Visibility.Collapsed;
+        Pill.ToolTip = upright && sensing && !expanded && toast == null ? SensorText.Text : null; // debout : la légende en infobulle
 
         // Rien à montrer : l'île disparaît, et un pixel à alpha 0 laisse passer les clics vers la fenêtre dessous.
         var hide = !expanded && toast == null && !playing && !badge && !sensing;
@@ -508,9 +527,12 @@ public partial class MainWindow : Window
         else
         {
             Compact.Measure(infinite);
-            (next, width, height) = (Compact, Math.Max(96, Compact.DesiredSize.Width), playing ? 34 : 28);
+            var thick = playing ? 34 : 28; // la pochette demande un peu plus d'épaisseur
+            (next, width, height) = upright
+                ? (Compact, Math.Max(thick, Compact.DesiredSize.Width), Math.Max(96, Compact.DesiredSize.Height))
+                : (Compact, Math.Max(96, Compact.DesiredSize.Width), thick);
         }
-        var radius = expanded ? 34 : height / 2;
+        var radius = expanded ? 34 : Math.Min(width, height) / 2;
 
         if (next != shown)
         {
@@ -554,6 +576,7 @@ public partial class MainWindow : Window
         Pill.Height = size[1];
         Pill.CornerRadius = new CornerRadius(size[2]);
         Pill.Clip = new RectangleGeometry(new Rect(0, 0, size[0], size[1]), size[2], size[2]);
+        PlacePill();
     }
 
     // Une seule horloge pour les quatre barres : elles changent ensemble, donc un seul dessin par tick.
@@ -787,16 +810,30 @@ public partial class MainWindow : Window
                     var name = AppName(n);
                     if (!Wanted(id, name)) continue;
                     var texts = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric).GetTextElements().Select(t => t.Text).ToList();
-                    Show(Note.From(texts, n.CreationTime.LocalDateTime, name) with { AppId = id, Avatar = LoadAvatar(n.Id), Tag = IsDiscord(id) ? LoadTag(n.Id) : null });
+                    Show(Note.From(texts, n.CreationTime.LocalDateTime, name) with { AppId = id, Ids = [n.Id], Avatar = LoadAvatar(n.Id), Tag = IsDiscord(id) ? LoadTag(n.Id) : null });
                 }
                 catch (Exception ex) { Log(ex); }
             }
             seen.IntersectWith(current.Select(n => n.Id)); // sortie du centre de notifications, une notification n'y revient jamais
             firstNotificationPoll = false;
         }
-        if (notes.Count == 0) return;
+        if (notes.Count == 0 || Quiet) return; // ne pas déranger : les notifications sont gardées pour après, pas lues
+        // Ouvrir l'appli vaut lecture, pour ce qui est arrivé avant : une notification reçue pendant qu'on y est déjà
+        // (un mail Chrome pendant une vidéo) n'a pas été vue, elle reste.
         var process = ForegroundProcess();
-        foreach (var read in notes.Where(n => n.FromProcess(process)).ToList()) notes.Remove(read); // ouvrir l'appli vaut lecture
+        foreach (var read in notes.Where(n => n.FromProcess(process) && n.When < foregroundSince).ToList()) Dismiss(read);
+    }
+
+    // Effacée ou lue dans l'île : elle quitte aussi le centre de notifications, sinon le prochain lancement la relit et la remet.
+    void Dismiss(Note note)
+    {
+        notes.Remove(note);
+        if (listener == null) return;
+        foreach (var id in note.Ids)
+        {
+            try { listener.RemoveNotification(id); }
+            catch (Exception ex) { Log(ex); }
+        }
     }
 
     // GetNotificationsAsync est l'appel le plus cher de l'île (23 ms de processeur avec un centre bien rempli) : on attend
@@ -829,7 +866,8 @@ public partial class MainWindow : Window
         if (same != null)
         {
             notes.Remove(same);
-            note = note with { Count = same.Count + 1, Avatar = note.Avatar ?? same.Avatar };
+            // Seuls les Id encore dans le centre de notifications : une longue conversation n'en accumule pas des centaines.
+            note = note with { Count = same.Count + 1, Avatar = note.Avatar ?? same.Avatar, Ids = [.. same.Ids.Where(seen.Contains), .. note.Ids] };
         }
         notes.Insert(0, note);
         while (notes.Count > MaxNotes) notes.RemoveAt(notes.Count - 1);
@@ -857,11 +895,15 @@ public partial class MainWindow : Window
     // Le nom ne change qu'avec la fenêtre : le relire chaque seconde coûtait un relevé de tous les processus (0,4 ms).
     static nint foregroundWindow;
     static string foregroundName = "";
+    static DateTime foregroundSince = DateTime.MinValue; // passage de la fenêtre au premier plan, vu au relevé suivant
+    static bool foregroundKnown; // la fenêtre trouvée au lancement n'a pas été « ouverte » : rien n'est lu avant un changement
 
     static string ForegroundProcess()
     {
         var window = GetForegroundWindow();
         if (window == foregroundWindow) return foregroundName;
+        foregroundSince = foregroundKnown ? DateTime.Now : DateTime.MinValue;
+        foregroundKnown = true;
         GetWindowThreadProcessId(window, out var pid);
         (foregroundWindow, foregroundName) = (window, AppVolume.ProcessName(pid));
         return foregroundName;
@@ -1037,7 +1079,7 @@ public partial class MainWindow : Window
 
     void ClearNotes(object sender, RoutedEventArgs e)
     {
-        notes.Clear();
+        foreach (var note in notes.ToList()) Dismiss(note);
         Apply();
     }
 
@@ -1055,18 +1097,20 @@ public partial class MainWindow : Window
         }
         if (note.AppId == "") return; // message de l'île : il n'y a rien à ouvrir
         notes.Remove(note); // certaines applis du Store ne sont pas reconnues au premier plan
-        if (await Replay(note)) return;
+        if (await Replay(note) || Open(LinkFor(note))) Dismiss(note);
         // Une appli système ou une icône de la zone de notification n'a pas d'appli à ouvrir : la vraie notification,
         // avec ses boutons (redémarrer, analyser...), attend alors dans le centre de notifications de Windows.
-        foreach (var link in new[] { LinkFor(note), "ms-actioncenter:" })
+        else Open("ms-actioncenter:");
+    }
+
+    bool Open(string link)
+    {
+        try
         {
-            try
-            {
-                Process.Start(new ProcessStartInfo(link) { UseShellExecute = true })?.Dispose();
-                return;
-            }
-            catch (Win32Exception ex) { Log(ex); }
+            Process.Start(new ProcessStartInfo(link) { UseShellExecute = true })?.Dispose();
+            return true;
         }
+        catch (Win32Exception ex) { Log(ex); return false; }
     }
 
     // Le clic Windows rejoué marche pour tout le monde, sans RPC ni testeurs : Discord ouvre lui-même le salon.

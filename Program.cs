@@ -106,6 +106,27 @@ static class Program
             && Monitors.Moved(side, new(-1000, 300), new(460, 700), 20, 1) == (-1230, 280, false)
             && Monitors.Moved(main, new(1000, 1000), new(230, 350), 10, 2) == (885, 346, true)
             && Monitors.Moved(new(@"\\.\DISPLAY3", 0, 0, 400, 800, false), new(100, 100), new(460, 700), 20, 1) == (0, 80, false) // plus étroit que la fenêtre
+            && Monitors.SideOf(main, 40, 136, 60, 1) == Side.Left
+            && Monitors.SideOf(main, -30, 66, 60, 1) == Side.Left // lâchée au-delà du bord
+            && Monitors.SideOf(main, 70, 400, 60, 1) == Side.None // large barre, bout gauche encore loin
+            && Monitors.SideOf(main, 2170, 2504, 60, 1) == Side.Right // large barre, bout droit près du bord
+            && Monitors.SideOf(main, 1232, 1328, 60, 1) == Side.None
+            && Monitors.SideOf(side, -1900, -1866, 60, 1) == Side.Left
+            && Monitors.SideOf(side, -90, -56, 60, 1) == Side.Right
+            && Monitors.SideOf(main, 1600, 1680, 60, 1.5) == Side.Right // 2560 px à 150 % : 1707 unités
+            && Monitors.Docked(main, 700, new(460, 700), false, 1) == (0, 350, 350, 1042)
+            && Monitors.Docked(main, 100, new(460, 700), true, 1) == (2100, 0, 100, 1392)
+            && Monitors.Docked(main, 1380, new(460, 700), false, 1) == (0, 692, 688, 700)
+            && Monitors.Docked(main, 5000, new(460, 700), false, 1) == (0, 692, 700, 700)
+            && Monitors.Docked(side, 700, new(460, 700), true, 1) == (-460, 350, 350, 886)
+            && Monitors.Docked(main, 400, new(460, 700), true, 1.5) == (2560 / 1.5 - 460, 50, 350, 878)
+            && Monitors.Docked(new(@"\\.\DISPLAY3", 0, 0, 400, 600, false), 100, new(460, 700), false, 1) == (0, 0, 100, 600) // écran plus bas que la fenêtre
+            && Monitors.PillTop(350, 96, 1042, 700) == 302
+            && Monitors.PillTop(10, 96, 1042, 700) == 6 // près du haut
+            && Monitors.PillTop(660, 96, 672, 700) == 570 // écran utile plus bas que la fenêtre : la barre reste au-dessus de la barre des tâches
+            && Monitors.PillTop(300, 900, 672, 700) == 6 // panneau plus haut que la place : collé en haut
+            && Settings.Parse("{}").Side == Side.None
+            && Settings.Parse(JsonSerializer.Serialize(new Settings { Side = Side.Right, Bar = new(10, 20) })) is { Side: Side.Right, Bar: { } docked } && docked == new Point(10, 20)
             && Monitors.Nearest([main, side], -100, 500) == side
             && Monitors.Nearest([main, side], 100, 500) == main
             && Monitors.Nearest([main, side], -10, 50) == main // le trou au-dessus de l'écran de gauche

@@ -71,6 +71,7 @@ public partial class MainWindow : Window
     static readonly Geometry PlayGeometry = Geometry.Parse("M7 4.5v15l12.5-7.5z");
     static readonly Geometry PauseGeometry = Geometry.Parse("M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z");
     static readonly Brush NoArt = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2E));
+    static readonly Brush GearOpen = new SolidColorBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF)); // engrenage des réglages ouverts
     static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "IslandBar.log");
     static readonly string OldLog = Path.ChangeExtension(LogPath, ".old.log");
     const long MaxLog = 1 << 20;
@@ -331,8 +332,8 @@ public partial class MainWindow : Window
             case Key.Up: SetVolume(VolumeScale.ScaleX + VolumeStep); break;
             case Key.Down: SetVolume(VolumeScale.ScaleX - VolumeStep); break;
             case Key.S: OutputClick(null, null); break;
-            case Key.Enter: OpenNote(notes.FirstOrDefault()); break;
-            case Key.Delete: ClearNotes(null, null); break;
+            case Key.Enter when !SettingsMenu.IsVisible: OpenNote(notes.FirstOrDefault()); break; // réglages ouverts : la liste est cachée
+            case Key.Delete when !SettingsMenu.IsVisible: ClearNotes(null, null); break;
             default: return;
         }
         e.Handled = true;
@@ -374,9 +375,13 @@ public partial class MainWindow : Window
     void Unfold(FrameworkElement menu)
     {
         var open = menu?.Visibility == Visibility.Visible ? null : menu;
+        var settingsOpen = open == SettingsMenu;
         OutputMenu.Visibility = open == OutputMenu ? Visibility.Visible : Visibility.Collapsed;
-        SettingsMenu.Visibility = open == SettingsMenu ? Visibility.Visible : Visibility.Collapsed;
-        if (open != SettingsMenu) QuietHeader.IsChecked = ScreenHeader.IsChecked = AppsHeader.IsChecked = false;
+        SettingsMenu.Visibility = settingsOpen ? Visibility.Visible : Visibility.Collapsed;
+        if (!settingsOpen) QuietHeader.IsChecked = ScreenHeader.IsChecked = AppsHeader.IsChecked = false;
+        // Les réglages prennent la place des notifications ; l'en-tête devient « Réglages », voir Apply.
+        NotesSection.Visibility = ClearButton.Visibility = settingsOpen ? Visibility.Collapsed : Visibility.Visible;
+        GearButton.Background = settingsOpen ? GearOpen : Brushes.Transparent;
         OutputChevron.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(open == OutputMenu ? 180 : 0, TimeSpan.FromMilliseconds(180)));
         if (open == OutputMenu) FillOutputs();
         if (open == SettingsMenu) FillSettings();
@@ -433,11 +438,12 @@ public partial class MainWindow : Window
         var chosen = Chosen(monitors);
         ScreenHeader.Tag = Strings.Screen(chosen.Number, chosen.Primary);
         ScreenList.ItemsSource = monitors.Select(m => new Choice(Strings.Screen(m.Number, m.Primary), m == chosen, () => ChooseScreen(m))).ToList();
-        var seen = settings.Apps.Count;
-        AppsHeader.IsEnabled = seen > 0;
-        AppsHeader.Content = seen > 0 ? Strings.ShowFrom : Strings.NoApps;
-        AppsHeader.Tag = seen > 0 ? Strings.OutOf(settings.Apps.Values.Count(a => a.Show), seen) : "";
-        AppList.ItemsSource = settings.Apps.OrderBy(a => a.Value.Name)
+        // Sans nom : appli ajoutée par la version complète, qui partage ce fichier, avant sa première notification.
+        var named = settings.Apps.Where(a => a.Value.Name != null).ToList();
+        AppsHeader.IsEnabled = named.Count > 0;
+        AppsHeader.Content = named.Count > 0 ? Strings.ShowFrom : Strings.NoApps;
+        AppsHeader.Tag = named.Count > 0 ? Strings.OutOf(named.Count(a => a.Value.Show), named.Count) : "";
+        AppList.ItemsSource = named.OrderBy(a => a.Value.Name)
             .Select(a => new Choice(a.Value.Name, a.Value.Show, () => ChooseApp(a.Key, !a.Value.Show))).ToList();
     }
 
@@ -492,8 +498,9 @@ public partial class MainWindow : Window
         Badge.Visibility = badge ? Visibility.Visible : Visibility.Collapsed;
         BadgeText.Text = notes.Sum(n => n.Count).ToString();
         Empty.Visibility = notes.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
-        NotesHeader.Text = quiet ? Strings.NotificationsQuiet : Strings.Notifications;
-        NotesHeader.Foreground = (Brush)FindResource(quiet ? "QuietBlue" : "Dim");
+        var settingsOpen = SettingsMenu.Visibility == Visibility.Visible;
+        NotesHeader.Text = settingsOpen ? Strings.Settings : quiet ? Strings.NotificationsQuiet : Strings.Notifications;
+        NotesHeader.Foreground = (Brush)FindResource(quiet && !settingsOpen ? "QuietBlue" : "Dim");
         MiniArt.Visibility = Bars.Visibility = playing ? Visibility.Visible : Visibility.Collapsed;
         MiniTitle.Visibility = playing && !upright ? Visibility.Visible : Visibility.Collapsed; // debout, le titre ne tient pas
 
@@ -735,7 +742,7 @@ public partial class MainWindow : Window
             using var thumbnail = await track.Thumbnail.OpenReadAsync().AsTask().WaitAsync(PlayerTimeout);
             using var source = thumbnail.AsStreamForRead();
             using var copy = new MemoryStream();
-            await source.CopyToAsync(copy);
+            await source.CopyToAsync(copy).WaitAsync(PlayerTimeout); // un lecteur figé ne doit pas bloquer Poll
             copy.Position = 0;
             return new ImageBrush(Decode(copy)) { Stretch = Stretch.UniformToFill };
         }
@@ -853,7 +860,13 @@ public partial class MainWindow : Window
     // Toute appli s'affiche d'office : le menu sert à retirer celles qu'on ne veut pas voir.
     bool Wanted(string id, string name)
     {
-        if (settings.Apps.TryGetValue(id, out var app)) return app.Show;
+        if (settings.Apps.TryGetValue(id, out var app))
+        {
+            if (app.Name != null) return app.Show;
+            settings.Apps[id] = app with { Name = name }; // enregistrée sans nom par une autre version : le menu peut maintenant la montrer
+            SaveSettings();
+            return app.Show;
+        }
         settings.Apps[id] = new(name, true, Settings.BannerOff(id));
         Settings.SetBanner(id, show: false);
         SaveSettings(); // pas Save : une erreur d'écriture ferait perdre cette notification, sa bannière déjà coupée

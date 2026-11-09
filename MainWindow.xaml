@@ -100,8 +100,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" CornerRadius="9" Padding="10,5">
-                            <DockPanel>
+                        <Border x:Name="B" Background="{TemplateBinding Background}" CornerRadius="9" Padding="12,8" MinHeight="34">
+                            <DockPanel VerticalAlignment="Center">
                                 <Path x:Name="Chevron" DockPanel.Dock="Right" Data="M6 9l6 6 6-6" Stroke="{StaticResource Dim}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                       Stretch="Uniform" Width="10" Margin="8,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
                                     <Path.RenderTransform>
@@ -114,10 +114,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#22FFFFFF"/>
+                                <Setter TargetName="B" Property="Background" Value="#14FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#38FFFFFF"/>
+                                <Setter TargetName="B" Property="Background" Value="#26FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="Chevron" Property="Visibility" Value="Collapsed"/>
@@ -153,6 +153,57 @@
                 </DockPanel>
             </Button>
         </DataTemplate>
+
+        <!-- Page des réglages : groupes titrés, cartes, filets entre les lignes. -->
+        <Style x:Key="Group" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Dim}"/>
+            <Setter Property="Margin" Value="25,12,0,6"/>
+        </Style>
+
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="#14FFFFFF"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="Margin" Value="10,0"/>
+        </Style>
+
+        <!-- Liste déroulée sous son en-tête, en retrait dans la carte -->
+        <Style x:Key="Inset" TargetType="Border">
+            <Setter Property="Background" Value="#0FFFFFFF"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Margin" Value="9,0,9,6"/>
+        </Style>
+
+        <Style x:Key="Rule" TargetType="Rectangle">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Fill" Value="#12FFFFFF"/>
+            <Setter Property="Margin" Value="12,0"/>
+        </Style>
+
+        <Style x:Key="Setting" TargetType="Button" BasedOn="{StaticResource Flat}">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="B" Background="Transparent" CornerRadius="9" Padding="12,8" MinHeight="34">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="B" Property="Background" Value="#14FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="B" Property="Background" Value="#26FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <Style x:Key="Icon" TargetType="Button" BasedOn="{StaticResource Flat}">
             <Setter Property="Width" Value="38"/>
@@ -338,44 +389,64 @@
                 <Rectangle Height="0.5" Fill="#2EFFFFFF" Margin="18,12,18,0"/>
 
                 <DockPanel Margin="18,9,12,3">
-                    <Button DockPanel.Dock="Right" Style="{StaticResource Flat}" Click="GearClick" Width="26" Height="26" ToolTip="{x:Static local:Strings.Settings}">
+                    <Button x:Name="GearButton" DockPanel.Dock="Right" Style="{StaticResource Flat}" Click="GearClick" Width="26" Height="26"
+                            ToolTip="{x:Static local:Strings.Settings}" AutomationProperties.Name="{x:Static local:Strings.Settings}">
                         <Path Fill="{StaticResource Dim}" Stretch="Uniform" Width="15"
                               Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
                     </Button>
-                    <Button DockPanel.Dock="Right" Style="{StaticResource Flat}" Click="ClearNotes" Padding="10,3" Foreground="{StaticResource Dim}" Content="{x:Static local:Strings.Clear}"/>
+                    <Button x:Name="ClearButton" DockPanel.Dock="Right" Style="{StaticResource Flat}" Click="ClearNotes" Padding="10,3" Foreground="{StaticResource Dim}" Content="{x:Static local:Strings.Clear}"/>
                     <TextBlock x:Name="NotesHeader" Text="{x:Static local:Strings.Notifications}" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
                 </DockPanel>
 
-                <Border x:Name="SettingsMenu" Style="{StaticResource Menu}">
-                    <StackPanel>
-                        <ToggleButton x:Name="QuietHeader" Style="{StaticResource Section}" Content="{x:Static local:Strings.DoNotDisturb}" Click="SectionClick"/>
-                        <Border Style="{StaticResource SubMenu}" Visibility="{Binding IsChecked, ElementName=QuietHeader, Converter={StaticResource WhenTrue}}">
-                            <ItemsControl x:Name="QuietList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
-                        </Border>
-                        <StackPanel x:Name="ScreenChoice" Visibility="Collapsed">
-                            <ToggleButton x:Name="ScreenHeader" Style="{StaticResource Section}" Content="{x:Static local:Strings.ScreenLabel}" Click="SectionClick"/>
-                            <Border Style="{StaticResource SubMenu}" Visibility="{Binding IsChecked, ElementName=ScreenHeader, Converter={StaticResource WhenTrue}}">
-                                <ItemsControl x:Name="ScreenList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                <!-- Réglages : à la place de la liste des notifications, la musique reste au-dessus. Groupes en cartes,
+                     listes déroulantes en retrait dans leur carte. Un seul sous-menu ouvert à la fois, voir SectionClick. -->
+                <StackPanel x:Name="SettingsMenu" Visibility="Collapsed" Margin="0,0,0,14">
+                    <TextBlock Style="{StaticResource Group}" Text="{x:Static local:Strings.GroupNotifications}" Margin="25,6,0,6"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <ToggleButton x:Name="QuietHeader" Style="{StaticResource Section}" Content="{x:Static local:Strings.DoNotDisturb}" Click="SectionClick"/>
+                            <Border Style="{StaticResource Inset}" Visibility="{Binding IsChecked, ElementName=QuietHeader, Converter={StaticResource WhenTrue}}">
+                                <ItemsControl x:Name="QuietList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                            </Border>
+                            <Rectangle Style="{StaticResource Rule}"/>
+                            <ToggleButton x:Name="AppsHeader" Style="{StaticResource Section}" Click="SectionClick"/>
+                            <Border Style="{StaticResource Inset}" Visibility="{Binding IsChecked, ElementName=AppsHeader, Converter={StaticResource WhenTrue}}">
+                                <ScrollViewer MaxHeight="140" VerticalScrollBarVisibility="Hidden" Focusable="False">
+                                    <ItemsControl x:Name="AppList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                                </ScrollViewer>
                             </Border>
                         </StackPanel>
-                        <ToggleButton x:Name="AppsHeader" Style="{StaticResource Section}" Click="SectionClick"/>
-                        <Border Style="{StaticResource SubMenu}" Visibility="{Binding IsChecked, ElementName=AppsHeader, Converter={StaticResource WhenTrue}}">
-                            <ScrollViewer MaxHeight="140" VerticalScrollBarVisibility="Hidden" Focusable="False">
-                                <ItemsControl x:Name="AppList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
-                            </ScrollViewer>
+                    </Border>
+
+                    <!-- Un seul écran : le groupe entier disparaît -->
+                    <StackPanel x:Name="ScreenChoice" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource Group}" Text="{x:Static local:Strings.GroupSystem}"/>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <ToggleButton x:Name="ScreenHeader" Style="{StaticResource Section}" Content="{x:Static local:Strings.ScreenLabel}" Click="SectionClick"/>
+                                <Border Style="{StaticResource Inset}" Visibility="{Binding IsChecked, ElementName=ScreenHeader, Converter={StaticResource WhenTrue}}">
+                                    <ItemsControl x:Name="ScreenList" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"/>
+                                </Border>
+                            </StackPanel>
                         </Border>
-                        <Rectangle Height="0.5" Fill="#2EFFFFFF" Margin="10,4"/>
-                        <Button Style="{StaticResource Row}" Click="Quit" Content="{x:Static local:Strings.Quit}"/>
                     </StackPanel>
-                </Border>
 
-                <TextBlock x:Name="Empty" Text="{x:Static local:Strings.NoNotifications}" FontSize="13" Foreground="{StaticResource Faint}" Margin="18,6,18,8" TextWrapping="Wrap"/>
-                <ScrollViewer MaxHeight="184" VerticalScrollBarVisibility="Hidden" Margin="18,0" Focusable="False">
-                    <ItemsControl x:Name="NoteList" ItemTemplate="{StaticResource NoteRow}" Cursor="Hand" MouseLeftButtonUp="NoteClick" Focusable="False"/>
-                </ScrollViewer>
+                    <Border Style="{StaticResource Card}" Margin="10,12,10,0">
+                        <Button Style="{StaticResource Setting}" Click="Quit" HorizontalContentAlignment="Center">
+                            <TextBlock Text="{x:Static local:Strings.Quit}" Foreground="#FF6B6B" HorizontalAlignment="Center"/>
+                        </Button>
+                    </Border>
+                </StackPanel>
 
-                <TextBlock Text="{x:Static local:Strings.Help}"
-                           FontSize="10.5" Foreground="{StaticResource Faint}" TextAlignment="Center" Margin="12,9,12,14"/>
+                <StackPanel x:Name="NotesSection">
+                    <TextBlock x:Name="Empty" Text="{x:Static local:Strings.NoNotifications}" FontSize="13" Foreground="{StaticResource Faint}" Margin="18,6,18,8" TextWrapping="Wrap"/>
+                    <ScrollViewer MaxHeight="184" VerticalScrollBarVisibility="Hidden" Margin="18,0" Focusable="False">
+                        <ItemsControl x:Name="NoteList" ItemTemplate="{StaticResource NoteRow}" Cursor="Hand" MouseLeftButtonUp="NoteClick" Focusable="False"/>
+                    </ScrollViewer>
+
+                    <TextBlock Text="{x:Static local:Strings.Help}"
+                               FontSize="10.5" Foreground="{StaticResource Faint}" TextAlignment="Center" Margin="12,9,12,14"/>
+                </StackPanel>
             </StackPanel>
         </Grid>
     </Border>

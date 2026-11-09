@@ -138,6 +138,7 @@ static class Program
             && Settings.Parse("{\"Quiet\":true}").Quiet
             && Settings.Parse("{\"Bar\":\"pas un point\"}").Bar == null
             && Settings.Parse("{\"Apps\":{\"x\":{\"Name\":\"X\",\"Show\":true}}}").Apps["x"] == new AppChoice("X", true) // fichier d'une ancienne version
+            && JsonSerializer.Serialize(Settings.Parse("{\"Mail\":\"a\",\"Tabs\":[\"b\"]}")).Contains("\"Mail\":\"a\",\"Tabs\":[\"b\"]") // clés inconnues gardées
             && !Settings.BannerOff("appli-qui-n-existe-pas")
             && SettingsLocked()
             && AppVolume.ProcessName(uint.MaxValue) == ""

@@ -24,10 +24,12 @@ public static class Strings
     public static string Always => T("Toujours", "Always");
     public static string InFullScreen => T("En plein écran", "In full screen");
     public static string Off => T("Désactivé", "Off");
-    public static string ShowFrom => T("Afficher les notifications de", "Show notifications from");
+    public static string ShowFrom => T("Applications", "Apps");
     public static string OutOf(int part, int total) => T($"{part} sur {total}", $"{part} of {total}");
     public static string NoApps => T("Aucune application pour l'instant", "No apps yet");
-    public static string ScreenLabel => T("Afficher l'île sur", "Show the island on");
+    public static string ScreenLabel => T("Écran", "Screen");
+    public static string GroupNotifications => T("NOTIFICATIONS", "NOTIFICATIONS");
+    public static string GroupSystem => T("SYSTÈME", "SYSTEM");
     public static string ClickToInstall => T("Clique pour l'installer", "Click to install");
     public static string Downloading => T("Téléchargement en cours…", "Downloading…");
     public static string UpdateFailed => T("Mise à jour impossible", "Update failed");

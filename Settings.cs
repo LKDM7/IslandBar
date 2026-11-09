@@ -23,6 +23,7 @@ public class Settings
     public Point? Bar { get; set; } // milieu de la barre posée à la main ; absent : en haut, au centre de l'écran
     public Side Side { get; set; } // collée debout contre un côté, à la hauteur de Bar ; None : couchée
 
+    [JsonExtensionData] public Dictionary<string, JsonElement> Others { get; set; } // clés d'une autre version d'IslandBar (même fichier) : réécrites telles quelles
     [JsonIgnore] public bool Unreadable { get; private set; } // fichier présent mais illisible pour l'instant, voir Load
 
     // Fichier absent ou abîmé : on repart des réglages par défaut plutôt que d'empêcher l'île de démarrer.

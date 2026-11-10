@@ -943,7 +943,7 @@ public partial class MainWindow : Window
     void Offer(Release release)
     {
         if (release == null || notes.Any(n => n.Update == release)) return;
-        Show(new Note(Strings.VersionAvailable(release.Tag.TrimStart('v')), Strings.ClickToInstall, DateTime.Now) { Update = release });
+        Show(new Note(Strings.VersionAvailable(release.Tag.TrimStart('v')), Strings.ClickToInstall, DateTime.Now) { Update = release, Avatar = Logo });
         Apply();
     }
 
@@ -966,9 +966,29 @@ public partial class MainWindow : Window
 
     void Flash(string text, double seconds)
     {
-        toast = new Note("IslandBar Lite", text, DateTime.Now);
+        toast = new Note("IslandBar Lite", text, DateTime.Now) { Avatar = Logo };
         toastUntil = DateTime.Now.AddSeconds(seconds);
         Apply();
+    }
+
+    // Le logo de l'appli, pour ses propres messages (mise à jour, téléchargement). Il est carré et la pastille ronde :
+    // réduit à 78 % sur un disque de sa couleur de fond, il tient en entier, « Lite » compris. 144 px restent nets à 36.
+    ImageSource logo;
+    ImageSource Logo => logo ??= RoundLogo();
+
+    static ImageSource RoundLogo()
+    {
+        var visual = new DrawingVisual();
+        RenderOptions.SetBitmapScalingMode(visual, BitmapScalingMode.HighQuality);
+        using (var draw = visual.RenderOpen())
+        {
+            draw.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xA5, 0xC8, 0xFF)), null, new Point(72, 72), 72, 72);
+            draw.DrawImage(new BitmapImage(new Uri("pack://application:,,,/assets/logo/logo-256.png")), new Rect(16, 16, 112, 112));
+        }
+        var bitmap = new RenderTargetBitmap(144, 144, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        bitmap.Freeze();
+        return bitmap;
     }
 
     // --- Actions ---

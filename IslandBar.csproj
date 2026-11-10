@@ -13,4 +13,8 @@
     <!-- Les infos de débogage gravent le chemin local, donc le nom du compte Windows, dans l'exe publié. -->
     <DebugType>none</DebugType>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Le logo des messages de l'appli elle-même (mise à jour), voir MainWindow.RoundLogo -->
+    <Resource Include="assets\logo\logo-256.png" />
+  </ItemGroup>
 </Project>

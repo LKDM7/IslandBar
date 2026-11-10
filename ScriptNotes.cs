@@ -44,7 +44,9 @@ static class ScriptNotes
                 await pipe.WaitForConnectionAsync();
                 using var reader = new StreamReader(pipe);
                 var buffer = new char[MaxPath + 1 + MaxLength];
-                var length = await reader.ReadBlockAsync(buffer);
+                // Un client connecté qui n'écrit rien tiendrait le seul canal : passé ce délai, on l'abandonne.
+                using var patience = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var length = await reader.ReadBlockAsync(buffer, patience.Token);
                 var (text, icon) = Read(new string(buffer, 0, length));
                 if (text != "") received(text, icon);
             }

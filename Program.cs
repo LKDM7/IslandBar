@@ -41,6 +41,8 @@ static class Program
             && new Note("a", "", t) { AppId = "5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App" }.FromProcess("WhatsApp")
             && !new Note("a", "", t) { AppId = "5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App" }.FromProcess("App!")
             && !new Note("a", "", t) { AppId = "Chrome" }.FromProcess("")
+            && new Note("a", "", t) { AppId = "Chrome" }.FromProcess("chrome")
+            && !new Note("a", "", t) { AppId = "OpenAI.Codex_2p2nqsd0c76g0!App" }.FromProcess("Code")
             && !new Note("a", "", t).FromProcess("IslandBar")
             && MainWindow.Accent([128, 128, 128, 255]) == Colors.White
             && MainWindow.Accent([0, 0, 200, 0]) == Colors.White

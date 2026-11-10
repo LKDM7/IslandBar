@@ -41,9 +41,11 @@ public record Note(string Title, string Body, DateTime When)
     public static Note From(IReadOnlyList<string> texts, DateTime when, string app = "Discord") =>
         new(texts.FirstOrDefault() ?? app, string.Join(" ", texts.Skip(1)).ReplaceLineEndings(" "), when) { AppName = app };
 
-    // "com.squirrel.Discord.Discord" ou "5319275A.WhatsAppDesktop_xxx!App" : le processus est une partie de l'identifiant.
+    // "com.squirrel.Discord.Discord" ou "5319275A.WhatsAppDesktop_xxx!App" : le processus est un morceau de l'identifiant,
+    // ou le début d'un morceau jusqu'à une majuscule (WhatsApp|Desktop). Pas plus large : « Code » n'est pas « Codex ».
     public bool FromProcess(string process) =>
-        AppId != "" && process != "" && AppId.Split('!')[0].Contains(process, StringComparison.OrdinalIgnoreCase);
+        AppId != "" && process != "" && AppId.Split('!')[0].Split('.', '_').Any(part =>
+            part.StartsWith(process, StringComparison.OrdinalIgnoreCase) && (part.Length == process.Length || !char.IsLower(part[process.Length])));
 }
 
 public record Choice(string Name, bool On, Action Pick);
@@ -174,11 +176,15 @@ public partial class MainWindow : Window
         await Safe(async () =>
         {
             settings.SetBanners(show: false); // l'île prend le relais tant qu'elle tourne, voir Quit
-            listener = UserNotificationListener.Current;
-            if (await listener.RequestAccessAsync() == UserNotificationListenerAccessStatus.Allowed) return;
-            listener = null;
-            Empty.Text = Strings.AccessDenied;
+            var windows = UserNotificationListener.Current;
+            if (await windows.RequestAccessAsync() == UserNotificationListenerAccessStatus.Allowed) listener = windows;
         });
+        if (listener == null) // accès refusé, ou Windows en erreur : l'île ne montrerait rien à la place des bannières
+        {
+            Empty.Text = Strings.AccessDenied;
+            try { settings.SetBanners(show: true); }
+            catch (Exception ex) { Log(ex); }
+        }
         _ = new DiscordRpc((title, link) => channelLinks[title] = link, Log).Run();
         Poll();
         // shortcut: polling 1 s au lieu des events, une seule boucle pour tout ; passer aux events si l'app est packagée MSIX
@@ -824,10 +830,12 @@ public partial class MainWindow : Window
             seen.IntersectWith(current.Select(n => n.Id)); // sortie du centre de notifications, une notification n'y revient jamais
             firstNotificationPoll = false;
         }
+        // Suivi à chaque relevé, même liste vide ou en ne pas déranger : sinon une appli devant depuis une heure passerait
+        // pour ouverte à l'instant, et la notification qu'elle vient d'envoyer pour déjà lue.
+        var process = ForegroundProcess();
         if (notes.Count == 0 || Quiet) return; // ne pas déranger : les notifications sont gardées pour après, pas lues
         // Ouvrir l'appli vaut lecture, pour ce qui est arrivé avant : une notification reçue pendant qu'on y est déjà
         // (un mail Chrome pendant une vidéo) n'a pas été vue, elle reste.
-        var process = ForegroundProcess();
         foreach (var read in notes.Where(n => n.FromProcess(process) && n.When < foregroundSince).ToList()) Dismiss(read);
     }
 
@@ -1026,7 +1034,7 @@ public partial class MainWindow : Window
     {
         float? level = null;
         try { if (session != null) level = AppVolume.Get(session.SourceAppUserModelId); }
-        catch (COMException ex) { Log(ex); }
+        catch (Exception ex) when (ex is COMException or InvalidCastException) { Log(ex); }
         VolumeRow.Visibility = level == null ? Visibility.Collapsed : Visibility.Visible;
         if (level != null) ShowVolume(level.Value);
     }
@@ -1043,7 +1051,7 @@ public partial class MainWindow : Window
         level = Math.Clamp(level, 0, 1);
         ShowVolume(level);
         try { AppVolume.Set(session.SourceAppUserModelId, (float)level); }
-        catch (COMException ex) { Log(ex); }
+        catch (Exception ex) when (ex is COMException or InvalidCastException) { Log(ex); }
     }
 
     void VolumeFromMouse(MouseEventArgs e) => SetVolume(Fraction(e, VolumeTrack));

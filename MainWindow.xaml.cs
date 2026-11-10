@@ -193,7 +193,7 @@ public partial class MainWindow : Window
         _ = Safe(CheckUpdates);
         _ = ScriptNotes.Listen((text, icon) =>
         {
-            Show(new Note("IslandBar Lite", text, DateTime.Now) { Avatar = LoadImage(Avatars.Local(icon)) });
+            Show(new Note("IslandBar Lite", text, DateTime.Now) { Avatar = LoadImage(Avatars.Local(icon)) ?? Logo });
             Apply();
         }, Log);
         Sensors.Watch(
@@ -971,7 +971,7 @@ public partial class MainWindow : Window
         Apply();
     }
 
-    // Le logo de l'appli, pour ses propres messages (mise à jour, téléchargement). Il est carré et la pastille ronde :
+    // Le logo de l'appli, pour ses propres messages (mise à jour, téléchargement, script sans --icon). Il est carré et la pastille ronde :
     // réduit à 78 % sur un disque de sa couleur de fond, il tient en entier, « Lite » compris. 144 px restent nets à 36.
     ImageSource logo;
     ImageSource Logo => logo ??= RoundLogo();

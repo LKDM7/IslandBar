@@ -82,7 +82,7 @@ dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile
 Pour vérifier la logique interne (0 = OK) :
 
 ```powershell
-.\app\IslandBar.exe --selftest; $LASTEXITCODE
+dotnet run --project tests; $LASTEXITCODE
 ```
 
 ### Créer l'installateur

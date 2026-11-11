@@ -79,7 +79,7 @@ public partial class MainWindow : Window
     const long MaxLog = 1 << 20;
     static readonly string NotificationWal = Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db-wal");
     const int FullCheckEvery = 60; // relevé de secours, voir NotificationsMoved
-    const int TrackCheckEvery = 5; // relecture de secours du titre, voir PollMusic
+    const int TrackCheckEvery = 5; // relecture de secours du titre, voir ReadMusic
     static readonly TimeSpan PlayerTimeout = TimeSpan.FromSeconds(3); // un lecteur figé ne doit pas bloquer les notifications
 
     readonly ObservableCollection<Note> notes = [];
@@ -218,10 +218,12 @@ public partial class MainWindow : Window
         toast = null;
         SetNoActivate(false);
         Activate();
+        volumes = null; // un flux a pu s'ouvrir ou se fermer depuis la dernière fois
         RefreshVolume();
         RefreshOutput();
         Apply();
-        Poll(); // le temps du morceau n'est plus tenu à jour panneau fermé, voir PollMusic
+        MusicMoved(now: false);
+        Poll(); // le temps du morceau n'est pas tenu à jour panneau fermé, voir ShowProgress
     }
 
     void Collapse(bool restoreFocus)
@@ -616,7 +618,6 @@ public partial class MainWindow : Window
             await Safe(PollMusic);
             await Safe(PollNotifications);
             if (expanded && !VolumeTrack.IsMouseCaptured) RefreshVolume();
-            if (expanded) RefreshOutput();
             if (toast != null && DateTime.Now > toastUntil) toast = null;
             Apply();
         }
@@ -647,11 +648,94 @@ public partial class MainWindow : Window
 
     public static string Clock(TimeSpan t) => $"{(int)t.TotalMinutes}:{t.Seconds:00}";
 
+    // Windows prévient quand un lecteur change de morceau, d'état ou de position : la musique n'est relue qu'à ce moment-là,
+    // pas chaque seconde. Ces appels arrivent sur les fils de Windows : ils ne font que lever un drapeau.
+    const int MusicCheckEvery = 5; // relevé de secours, en secondes : un événement perdu ne fige pas la barre plus longtemps
+    const int ArtTries = 10; // pochette publiée après le titre : redemandée chaque seconde, mais pas sans fin à un lecteur qui n'en a pas
+    List<Session> followed = []; // gardés : sans référence, le ramasse-miettes couperait les abonnements
+    int musicMoved = 1, playersMoved = 1, titleMoved, timeMoved, pollQueued, musicAge, artTries;
+    GlobalSystemMediaTransportControlsSessionTimelineProperties time; // position lue en dernier, voir ShowProgress
+    bool seekable;
+
+    // now : le relevé part tout de suite, sans attendre le prochain passage.
+    void MusicMoved(bool now = true)
+    {
+        Volatile.Write(ref musicMoved, 1);
+        if (!now || Interlocked.Exchange(ref pollQueued, 1) == 1) return; // un changement de morceau lève plusieurs événements : un seul relevé
+        Dispatcher.BeginInvoke(async () =>
+        {
+            await Task.Delay(200); // laisse le lecteur publier la suite (pochette, position), comme après un clic, voir Control
+            Volatile.Write(ref pollQueued, 0);
+            Poll();
+        }, DispatcherPriority.Background);
+    }
+
+    void PlayerMoved(Session player, object e) => MusicMoved();
+    // Certains lecteurs publient leur position chaque seconde : elle ne se voit que panneau ouvert, voir PollMusic.
+    void TimeMoved(Session player, object e) => Volatile.Write(ref timeMoved, 1);
+    void TitleMoved(Session player, object e)
+    {
+        Volatile.Write(ref titleMoved, 1);
+        MusicMoved();
+    }
+
+    void FollowPlayers(IReadOnlyList<Session> players)
+    {
+        foreach (var old in followed)
+        {
+            try
+            {
+                old.PlaybackInfoChanged -= PlayerMoved;
+                old.MediaPropertiesChanged -= TitleMoved;
+                old.TimelinePropertiesChanged -= TimeMoved;
+            }
+            catch (Exception ex) when (ex is COMException or InvalidCastException or ObjectDisposedException) { } // lecteur fermé : plus rien à détacher
+        }
+        followed = [.. players];
+        foreach (var player in followed)
+        {
+            player.PlaybackInfoChanged += PlayerMoved;
+            player.MediaPropertiesChanged += TitleMoved;
+            player.TimelinePropertiesChanged += TimeMoved;
+        }
+    }
+
     async Task PollMusic()
     {
-        media ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-        session = media.GetSessions().FirstOrDefault(IsPlaying) ?? media.GetCurrentSession();
+        if (media == null)
+        {
+            media = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            media.SessionsChanged += (_, _) =>
+            {
+                Volatile.Write(ref playersMoved, 1);
+                MusicMoved();
+            };
+            media.CurrentSessionChanged += (_, _) => MusicMoved();
+        }
+        var moved = Interlocked.Exchange(ref musicMoved, 0) == 1 || expanded && Interlocked.Exchange(ref timeMoved, 0) == 1;
+        var artMissing = session != null && BigArt.Fill == NoArt && artTries < ArtTries;
+        if (moved || artMissing || ++musicAge >= MusicCheckEvery)
+        {
+            musicAge = 0;
+            try { await ReadMusic(); }
+            catch
+            {
+                Volatile.Write(ref musicMoved, 1); // lecteur figé ou fermé en pleine lecture : à relire au passage suivant
+                Volatile.Write(ref titleMoved, 1); // son signal a peut-être été pris juste avant l'échec
+                throw;
+            }
+        }
+        ShowProgress();
+    }
+
+    async Task ReadMusic()
+    {
+        var players = media.GetSessions();
+        if (Interlocked.Exchange(ref playersMoved, 0) == 1 || players.Count != followed.Count) FollowPlayers(players);
+        var wasPlaying = playing;
+        session = players.FirstOrDefault(IsPlaying) ?? media.GetCurrentSession();
         playing = session != null && IsPlaying(session);
+        if (playing != wasPlaying) volumes = null; // un flux de son s'ouvre ou se ferme avec la lecture, voir RefreshVolume
         BigArt.Cursor = session != null ? Cursors.Hand : null;
         PlayIcon.Data = playing ? PauseGeometry : PlayGeometry;
 
@@ -663,34 +747,45 @@ public partial class MainWindow : Window
             MiniArt.Fill = BigArt.Fill = NoArt;
             SetAccent(NoArt);
             TimeRow.Visibility = Visibility.Collapsed;
+            (time, volumes) = (null, null);
             return;
         }
 
-        // Relire le titre coûtait 0,3 % d'un cœur à chaque seconde. On ne le relit que s'il a pu changer : autre lecteur,
-        // autre durée (le morceau suivant), pochette encore absente, et toutes les 5 s pour un morceau de même durée.
-        var time = session.GetTimelineProperties();
+        // Relire le titre coûte 0,4 ms : seulement s'il a pu changer. Le lecteur l'a signalé, c'est un autre lecteur, une
+        // autre durée (le morceau suivant), la pochette manque encore, ou en secours tous les TrackCheckEvery relevés.
+        time = session.GetTimelineProperties();
+        seekable = session.GetPlaybackInfo().Controls.IsPlaybackPositionEnabled;
+        var retitled = Interlocked.Exchange(ref titleMoved, 0) == 1;
         var shape = (session.SourceAppUserModelId, time.StartTime, time.EndTime);
-        if (track == null || shape != trackShape || BigArt.Fill == NoArt || ++trackAge >= TrackCheckEvery)
+        if (track == null || retitled || shape != trackShape || BigArt.Fill == NoArt || ++trackAge >= TrackCheckEvery)
         {
             track = await session.TryGetMediaPropertiesAsync().AsTask().WaitAsync(PlayerTimeout);
             (trackShape, trackAge) = (shape, 0);
         }
         var key = $"{session.SourceAppUserModelId}|{track.Title}|{track.Artist}";
         // Certains lecteurs publient la pochette après le titre : on la redemande tant qu'elle manque.
-        if (key != trackKey || BigArt.Fill == NoArt)
+        // Signalé sans que le titre change : c'est souvent la pochette, publiée un instant après lui.
+        if (key != trackKey || BigArt.Fill == NoArt || retitled)
         {
+            var next = key != trackKey;
+            if (next) (artTries, volumes) = (0, null); // autre morceau, peut-être un autre onglet : autre flux de son
             trackKey = key;
             TrackTitle.Text = MiniTitle.Text = track.Title;
             TrackArtist.Text = track.Artist;
-            MiniArt.Fill = BigArt.Fill = await LoadArt(track);
+            var art = await LoadArt(track);
+            if (next || art != NoArt) MiniArt.Fill = BigArt.Fill = art; // même morceau : une pochette illisible ne chasse pas celle affichée
+            if (BigArt.Fill == NoArt) artTries++;
             SetAccent(BigArt.Fill);
         }
+    }
 
-        if (!expanded) return; // le temps et la progression ne se voient que panneau ouvert ; Expand relance un relevé
+    // Chaque seconde, panneau ouvert seulement : la position avance d'après la dernière lue, sans rien redemander au lecteur.
+    void ShowProgress()
+    {
+        if (!expanded || session == null || time == null) return;
         duration = time.EndTime;
         TimeRow.Visibility = time.EndTime > TimeSpan.Zero ? Visibility.Visible : Visibility.Collapsed;
         if (time.EndTime <= TimeSpan.Zero) return;
-        var seekable = session.GetPlaybackInfo().Controls.IsPlaybackPositionEnabled;
         ProgressTrack.IsHitTestVisible = seekable;
         ProgressTrack.Cursor = seekable ? Cursors.Hand : null;
         if (ProgressTrack.IsMouseCaptured) return; // le curseur tenu à la souris ne doit pas revenir en arrière
@@ -811,7 +906,8 @@ public partial class MainWindow : Window
         if (listener == null) firstNotificationPoll = false;
         else if (NotificationsMoved())
         {
-            var current = await listener.GetNotificationsAsync(NotificationKinds.Toast);
+            // Avec un délai : un service de notifications figé ne doit pas arrêter toute la boucle (musique, minuteur, quotas).
+            var current = await listener.GetNotificationsAsync(NotificationKinds.Toast).AsTask().WaitAsync(PlayerTimeout);
             foreach (var n in current.OrderBy(n => n.CreationTime))
             {
                 if (!seen.Add(n.Id)) continue;
@@ -999,6 +1095,7 @@ public partial class MainWindow : Window
         if (target == null) return;
         await Safe(async () => await action(target));
         await Task.Delay(200); // laisse le lecteur publier son nouvel état
+        MusicMoved(now: false);
         Poll();
     }
 
@@ -1050,11 +1147,35 @@ public partial class MainWindow : Window
     }
 
     // Sans session audio reconnue pour cette app, la ligne reste cachée : rien d'autre n'est jamais réglé à sa place.
+    // Les flux du lecteur sont cherchés une fois (ouverture du panneau, autre morceau, lecture ou pause) puis gardés :
+    // parcourir les sessions audio à chaque seconde, ou à chaque pixel du curseur, coûte de la mémoire à Windows.
+    List<AppVolume.ISimpleAudioVolume> volumes;
+
+    // Une recherche sans résultat n'est pas gardée : le flux s'ouvre parfois un instant après le début de la lecture.
+    List<AppVolume.ISimpleAudioVolume> Volumes()
+    {
+        if (volumes != null || session == null) return volumes ?? [];
+        var found = AppVolume.Volumes(session.SourceAppUserModelId);
+        if (found.Count > 0) volumes = found;
+        return found;
+    }
+
     void RefreshVolume()
     {
         float? level = null;
-        try { if (session != null) level = AppVolume.Get(session.SourceAppUserModelId); }
-        catch (Exception ex) when (ex is COMException or InvalidCastException) { Log(ex); }
+        try
+        {
+            if (Volumes().Count > 0)
+            {
+                Volumes()[0].GetMasterVolume(out var read); // une appli garde le même niveau sur tous ses flux : SetVolume les règle ensemble
+                level = read;
+            }
+        }
+        catch (Exception ex) when (ex is COMException or InvalidCastException)
+        {
+            volumes = null; // flux fermé : recherché au passage suivant
+            Log(ex);
+        }
         VolumeRow.Visibility = level == null ? Visibility.Collapsed : Visibility.Visible;
         if (level != null) ShowVolume(level.Value);
     }
@@ -1070,8 +1191,16 @@ public partial class MainWindow : Window
         if (session == null || VolumeRow.Visibility != Visibility.Visible) return;
         level = Math.Clamp(level, 0, 1);
         ShowVolume(level);
-        try { AppVolume.Set(session.SourceAppUserModelId, (float)level); }
-        catch (Exception ex) when (ex is COMException or InvalidCastException) { Log(ex); }
+        try
+        {
+            var context = Guid.Empty;
+            foreach (var volume in Volumes()) volume.SetMasterVolume((float)level, ref context);
+        }
+        catch (Exception ex) when (ex is COMException or InvalidCastException)
+        {
+            volumes = null;
+            Log(ex);
+        }
     }
 
     void VolumeFromMouse(MouseEventArgs e) => SetVolume(Fraction(e, VolumeTrack));
@@ -1091,6 +1220,7 @@ public partial class MainWindow : Window
 
     void VolumeUp(object sender, MouseButtonEventArgs e) => VolumeTrack.ReleaseMouseCapture();
 
+    // shortcut: lu à l'ouverture du panneau seulement ; une sortie branchée panneau ouvert attend l'ouverture suivante
     void RefreshOutput()
     {
         try

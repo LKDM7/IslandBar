@@ -20,22 +20,9 @@ static class AppVolume
 
     [DllImport("ole32")] internal static extern int PropVariantClear(ref PropVariant value);
 
-    // Lit le premier flux trouvé : une app garde le même niveau sur tous ses flux, puisque Set les règle ensemble.
-    public static float? Get(string sourceApp)
-    {
-        foreach (var session in Sessions(sourceApp))
-        {
-            session.GetMasterVolume(out var level);
-            return level;
-        }
-        return null;
-    }
-
-    public static void Set(string sourceApp, float level)
-    {
-        var context = Guid.Empty;
-        foreach (var session in Sessions(sourceApp)) session.SetMasterVolume(level, ref context);
-    }
+    // Les flux de son de l'appli, à garder pour lire et régler son volume sans reparcourir les sessions, voir Capturing
+    // pour le coût de ce parcours.
+    public static List<ISimpleAudioVolume> Volumes(string sourceApp) => Sessions(sourceApp).ToList();
 
     // sourceApp vaut par exemple "Chrome", "Spotify.exe" ou "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify".
     public static string ProcessOf(string sourceApp)
@@ -352,7 +339,7 @@ static class AppVolume
     }
 
     [ComImport, Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface ISimpleAudioVolume
+    internal interface ISimpleAudioVolume
     {
         void SetMasterVolume(float level, ref Guid context);
         void GetMasterVolume(out float level);
